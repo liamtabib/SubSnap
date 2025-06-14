@@ -16,6 +16,32 @@ jobs:
           python-version: '3.10'
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Debug environment
+        run: |
+          echo "Checking environment variables (redacted sensitive values):"
+          echo "EMAIL_SENDER is set: ${{ secrets.EMAIL_SENDER != '' }}"
+          echo "EMAIL_RECIPIENT is set: ${{ secrets.EMAIL_RECIPIENT != '' }}"
+          echo "EMAIL_PASSWORD length: ${#EMAIL_PASSWORD}"
+          echo "SMTP_SERVER: smtp.gmail.com"
+          echo "SMTP_PORT: 587"
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      - name: Run script with debug
+        run: |
+          python -c "import os; print('Environment variables present:'); \
+          print('REDDIT_CLIENT_ID present:', os.environ.get('REDDIT_CLIENT_ID') is not None); \
+          print('EMAIL_SENDER present:', os.environ.get('EMAIL_SENDER') is not None); \
+          print('EMAIL_PASSWORD present:', os.environ.get('EMAIL_PASSWORD') is not None); \
+          print('SMTP_SERVER:', os.environ.get('SMTP_SERVER'))"
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: 'workflow/1.0 (by /u/Hopeful_Historian_33)'
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SMTP_SERVER: 'smtp.gmail.com'
+          SMTP_PORT: '587'
       - name: Run script
         run: python src/reddit_email.py --run-once
         env:

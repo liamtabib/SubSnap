@@ -1,0 +1,29 @@
+name: Reddit Digest
+
+on:
+  schedule:
+    - cron: '0 16 * * *'  # Runs at 16:00 UTC (18:00 CEST)
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run script
+        run: python src/reddit_email.py --run-once
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: 'workflow/1.0 (by /u/Hopeful_Historian_33)'
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SMTP_SERVER: 'smtp.gmail.com'
+          SMTP_PORT: '587'

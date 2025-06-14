@@ -95,8 +95,17 @@ def send_email(subject, html_content, recipient_email=None):
     smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     smtp_port = int(os.getenv('SMTP_PORT', 587))
     
+    # Print debug info (without exposing full password)
+    print(f"Email configuration:")
+    print(f"- Sender: {sender_email}")
+    print(f"- Recipient: {recipient_email}")
+    print(f"- Password exists: {bool(password)}")
+    print(f"- Password length: {len(password) if password else 0}")
+    print(f"- SMTP Server: {smtp_server}")
+    print(f"- SMTP Port: {smtp_port}")
+    
     if not all([sender_email, recipient_email, password]):
-        print("Error: Missing email configuration in .env file")
+        print("Error: Missing email configuration. Check environment variables.")
         return False
     
     message = MIMEMultipart("alternative")
@@ -107,16 +116,45 @@ def send_email(subject, html_content, recipient_email=None):
     html_part = MIMEText(html_content, "html")
     message.attach(html_part)
     
+    # Also add plain text alternative
+    plain_text = "This is the Reddit digest - please view in HTML format"
+    text_part = MIMEText(plain_text, "plain")
+    message.attach(text_part)
+    
     try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls(context=context)
-            server.login(sender_email, password)
-            server.sendmail(sender_email, recipient_email, message.as_string())
-        print(f"Email sent successfully to {recipient_email}")
-        return True
+        print("Attempting to connect to SMTP server...")
+        # First try with TLS
+        try:
+            print("Trying STARTTLS method...")
+            context = ssl.create_default_context()
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
+                server.ehlo()
+                server.starttls(context=context)
+                server.ehlo()
+                print("Login to SMTP server...")
+                server.login(sender_email, password.strip())  # Strip any spaces from password
+                print("Sending email...")
+                server.sendmail(sender_email, recipient_email, message.as_string())
+                print(f"Email sent successfully to {recipient_email}")
+                return True
+        except Exception as tls_error:
+            print(f"TLS method failed: {tls_error}")
+            
+            # If TLS fails, try SSL
+            try:
+                print("Trying SSL method...")
+                with smtplib.SMTP_SSL(smtp_server, 465, timeout=10) as server:
+                    server.ehlo()
+                    server.login(sender_email, password.strip())
+                    server.sendmail(sender_email, recipient_email, message.as_string())
+                    print(f"Email sent successfully to {recipient_email} (using SSL)")
+                    return True
+            except Exception as ssl_error:
+                raise Exception(f"Both TLS and SSL methods failed. TLS error: {tls_error}, SSL error: {ssl_error}")
     except Exception as e:
         print(f"Failed to send email: {e}")
+        print("Check your app password and make sure it doesn't have spaces.")
+        print("Also verify that 'Less secure app access' is enabled or you're using an App Password.")
         return False
 
 def run_reddit_digest():

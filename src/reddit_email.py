@@ -88,7 +88,7 @@ def format_email_content(posts_data):
     return email_content
 
 def send_email(subject, html_content, recipient_email=None):
-    """Send an email with the formatted content"""
+    """Send an email with the formatted content using SMTP (Gmail)"""
     sender_email = os.getenv('EMAIL_SENDER')
     recipient_email = recipient_email or os.getenv('EMAIL_RECIPIENT')
     password = os.getenv('EMAIL_PASSWORD')
@@ -96,7 +96,7 @@ def send_email(subject, html_content, recipient_email=None):
     smtp_port = int(os.getenv('SMTP_PORT', 587))
     
     # Print debug info (without exposing full password)
-    print(f"Email configuration:")
+    print(f"SMTP Email configuration:")
     print(f"- Sender: {sender_email}")
     print(f"- Recipient: {recipient_email}")
     print(f"- Password exists: {bool(password)}")

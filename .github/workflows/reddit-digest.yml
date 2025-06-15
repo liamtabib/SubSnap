@@ -12,15 +12,21 @@ jobs:
     
     steps:
     - name: Check out repository code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for all branches and tags
       
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9'
+        cache: 'pip'
         
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip list  # List installed packages for debugging
 
     - name: Verify Environment Variables
       run: |
@@ -92,7 +98,16 @@ jobs:
         REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
         
     - name: Run email script
-      run: python src/reddit_email.py --run-once
+      run: |
+        echo "Running from directory: $(pwd)"
+        echo "Current git commit: $(git rev-parse HEAD)"
+        echo "Latest code for format_email_content:"
+        grep -A 20 "def format_email_content" src/reddit_email.py
+        echo "\nChecking for username/emoji handling in comment summarization:"
+        grep -A 5 "DO NOT include usernames" src/reddit_email.py
+        
+        # Run the email script
+        python src/reddit_email.py --run-once
       env:
         # These env vars are already set at the job level but specified here for completeness
         REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}

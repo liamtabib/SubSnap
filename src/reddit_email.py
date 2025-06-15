@@ -23,9 +23,15 @@ load_dotenv()
 
 # Set up OpenAI client if API key is available
 openai_api_key = os.getenv('OPENAI_API_KEY')
-openai_client = None
+print(f"OpenAI API key available: {bool(openai_api_key)}") 
+print(f"OpenAI API key length: {len(openai_api_key) if openai_api_key else 0}")
+
 if openai_api_key:
     openai_client = openai.OpenAI(api_key=openai_api_key)
+    print(f"OpenAI client initialized: {bool(openai_client)}")
+else:
+    openai_client = None
+    print("WARNING: OpenAI client not initialized - summaries will be skipped")
 
 def connect_to_reddit():
     """Connect to Reddit API"""
@@ -131,6 +137,7 @@ def truncate_to_tokens(text, max_tokens):
 
 def summarize_post_content(post_data, subreddit_name):
     """Use OpenAI to summarize just the Reddit post content"""
+    print(f"Attempting to summarize post: {post_data['title'][:30]}...")
     if not openai_client:
         print("OpenAI API key not available. Skipping post summarization.")
         return None
@@ -140,25 +147,41 @@ def summarize_post_content(post_data, subreddit_name):
         title = post_data['title']
         body = truncate_to_tokens(post_data['body'], 700)  # Leave room for title
         post_content = f"Title: {title}\n\nContent: {body}"
+        print(f"Post content prepared, length: {len(post_content)} chars")
         
         # Create system message for post content
         system_message = {
             "role": "system",
-            "content": "You are a technical summarizer for Reddit posts from r/cursor (an AI-powered code editor), "
-                       "r/windsurf (a competing AI IDE), and r/vibecoding (AI-driven software development workflows). "
-                       "Summarize the post content using a direct, concise tone. Focus on concrete information such as new features, "
-                       "bugs, workflows, models, version changes, or community feedback. Include specific technical details "
-                       "when present (e.g. tool names, implementation patterns, performance metrics). Do not add commentary, "
-                       "fluff, or casual phrasing. If a post is non-technical, summarize it plainly without judgment. "
-                       f"This post is from r/{subreddit_name}."
+            "content": f"You are summarizing a Reddit post from r/{subreddit_name}. "
+                       "IMPORTANT CURRENT KNOWLEDGE (2025): "
+                       "- Cursor: An AI-powered code editor with GPT-4o integration and code generation capabilities. "
+                       "- Windsurf: A competing AI IDE, owned by OpenAI as of 2024, with advanced coding assistance and code editing features. "
+                       "- Vibe Coding: A development approach centered on using AI-driven workflows and tools for coding efficiency. "
+                       "- MCP (Model Context Protocol): A protocol that allows AI models to interface with external tools and systems, defining how models interact with API endpoints. "
+                       "- o3: An OpenAI large language model similar to GPT-4o but with specific tooling optimizations. "
+                       "- RAG: Retrieval Augmented Generation, a technique for enhancing AI responses with retrieved context. "
+                       "- Claude 4: Anthropic's flagship large language model released in 2024-2025. "
+                       "IMPORTANT: Give a concise, brief summary of ONLY what the post actually says. DO NOT respond to the post. "
+                       "DO NOT add your own commentary, questions, or direct address to the reader. "
+                       "DO NOT use emojis or emoticons in your summary. "
+                       "Use very casual, human speech-like language in your summaries. Write like people actually talk. "
+                       "Use direct references (like 'they' instead of 'the author suggests') and informal, conversational language. "
+                       "Keep summary length proportional to actual content - shorter summaries for simpler posts (2-3 sentences max), "
+                       "longer only if there's substantial technical content to summarize."
         }
         
         # Call OpenAI API
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[system_message, {"role": "user", "content": post_content}],
-            max_tokens=150  # Limit output to 150 tokens
-        )
+        print(f"Calling OpenAI API with model: gpt-4o")
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[system_message, {"role": "user", "content": post_content}],
+                max_tokens=150  # Limit output to 150 tokens
+            )
+            print("OpenAI API call succeeded!")
+        except Exception as api_error:
+            print(f"OpenAI API call failed with error: {api_error}")
+            raise
         
         # Get the summary and usage data
         summary = response.choices[0].message.content.strip()
@@ -172,7 +195,9 @@ def summarize_post_content(post_data, subreddit_name):
         return {"summary": summary, "usage": usage}
         
     except Exception as e:
-        print(f"Error generating post summary with OpenAI API: {e}")
+        print(f"ERROR generating post summary with OpenAI API: {e}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return None
 
 
@@ -199,13 +224,23 @@ def summarize_comments(post_data, subreddit_name):
         # Create system message specifically for comments
         system_message = {
             "role": "system",
-            "content": "You are a technical summarizer for comments on Reddit posts from r/cursor (an AI-powered code editor), "
-                       "r/windsurf (a competing AI IDE), and r/vibecoding (AI-driven software development workflows). "
-                       "Summarize the key points from comments using a direct, concise tone. Highlight user experiences, "
-                       "disagreements, consensus views, troubleshooting suggestions, or additional information provided. "
-                       "Focus on factual content and technical details. If the comments are primarily non-technical, "
-                       "summarize their general sentiment or feedback plainly. "
-                       f"These comments are on a post in r/{subreddit_name}."
+            "content": f"You are summarizing comments on a Reddit post from r/{subreddit_name}. "
+                       "IMPORTANT CURRENT KNOWLEDGE (2025): "
+                       "- Cursor: An AI-powered code editor with GPT-4o integration and code generation capabilities. "
+                       "- Windsurf: A competing AI IDE, owned by OpenAI as of 2024, with advanced coding assistance and code editing features. "
+                       "- Vibe Coding: A development approach centered on using AI-driven workflows and tools for coding efficiency. "
+                       "- MCP (Model Context Protocol): A protocol that allows AI models to interface with external tools and systems, defining how models interact with API endpoints. "
+                       "- o3: An OpenAI large language model similar to GPT-4o but with specific tooling optimizations. "
+                       "- RAG: Retrieval Augmented Generation, a technique for enhancing AI responses with retrieved context. "
+                       "- Claude 4: Anthropic's flagship large language model released in 2024-2025. "
+                       "IMPORTANT: Give a concise, factual summary of the comments. DO NOT write as if you're having a conversation. "
+                       "DO NOT add your own commentary, questions, or address the reader directly. "
+                       "DO NOT use emojis or emoticons in your summary. "
+                       "DO NOT include usernames (u/username) when attributing key points. Instead, use phrases like 'one user said', 'another person mentioned', etc. "
+                       "Use very casual, human speech-like language. Write like people actually talk. "
+                       "Use direct references and informal, conversational language. "
+                       "Keep summary length proportional to actual content - brief for simple discussions (2-3 sentences), "
+                       "longer only if there are multiple detailed technical viewpoints to summarize."
         }
         
         # Call OpenAI API
@@ -293,32 +328,268 @@ def format_email_content(all_subreddit_posts):
     html_content = f"""
     <html>
     <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
-            h1 {{ color: #333366; }}
-            h2 {{ color: #666699; background-color: #f2f2f2; padding: 10px; border-radius: 5px; }}
-            h3 {{ color: #5555AA; }}
-            .token-usage {{ background-color: #e6e6ff; padding: 10px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #ccccff; }}
-            .post {{ margin-bottom: 30px; border-bottom: 1px solid #ddd; padding-bottom: 20px; }}
-            .post-title {{ font-size: 18px; font-weight: bold; color: #333366; }}
-            .post-meta {{ color: #666; font-size: 14px; margin: 5px 0; }}
-            .post-content {{ margin: 10px 0; padding: 0 15px; }}
-            .summary {{ background-color: #f9f9f9; padding: 10px; border-radius: 5px; margin: 10px 0; }}
-            .comments-summary {{ border-left: 4px solid #666699; padding-left: 15px; margin: 10px 0; background-color: #fafafa; padding: 10px; }}
-            .comment {{ margin: 10px 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }}
-            .comment-meta {{ color: #666; font-size: 14px; }}
-            .no-posts {{ color: #999; font-style: italic; }}
+            :root {{
+                --primary-color: #FF4500;      /* Reddit orange */
+                --secondary-color: #0079D3;     /* Reddit blue */
+                --text-color: #1A1A1B;          /* Near black for text */
+                --light-text: #7C7C7C;          /* Lighter text for meta info */
+                --background: #F8F9FA;          /* Light background */
+                --card-background: #FFFFFF;     /* Card background */
+                --divider: #EDEFF1;              /* Divider color */
+                --highlight: #f0f7ff;            /* Light highlight color */
+                --shadow: rgba(0, 0, 0, 0.1);    /* Shadow color */
+                --radius: 10px;                  /* Border radius */
+            }}
+            
+            body {{ 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; 
+                margin: 0; 
+                padding: 20px; 
+                line-height: 1.6; 
+                background-color: var(--background);
+                color: var(--text-color);
+            }}
+            
+            h1 {{ 
+                color: var(--primary-color); 
+                font-size: 28px;
+                font-weight: 600;
+                margin-bottom: 8px;
+            }}
+            
+            h2 {{ 
+                color: var(--secondary-color); 
+                font-size: 22px;
+                font-weight: 500;
+                padding: 12px 20px;
+                margin: 30px 0 20px 0; 
+                border-radius: var(--radius);
+                background: linear-gradient(90deg, var(--secondary-color), #2A95E9);
+                color: white;
+                box-shadow: 0 2px 10px var(--shadow);
+            }}
+            
+            h3 {{ 
+                color: var(--secondary-color); 
+                font-size: 18px;
+                font-weight: 500;
+                margin: 15px 0 5px 0;
+            }}
+
+            a {{ 
+                color: var(--secondary-color); 
+                text-decoration: none; 
+            }}
+
+            a:hover {{ 
+                text-decoration: underline; 
+            }}
+
+            p {{ 
+                margin: 10px 0; 
+            }}
+
+            .container {{
+                max-width: 800px;
+                margin: 0 auto;
+            }}
+
+            .header {{
+                text-align: center;
+                padding: 20px 0;
+                border-bottom: 1px solid var(--divider);
+                margin-bottom: 20px;
+            }}
+
+            .date {{
+                color: var(--light-text);
+                font-size: 16px;
+                margin-bottom: 20px;
+            }}
+
+            .token-usage {{ 
+                background-color: var(--highlight); 
+                padding: 15px;
+                border-radius: var(--radius);
+                margin-bottom: 30px; 
+                box-shadow: 0 1px 5px var(--shadow);
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-around;
+                align-items: center;
+            }}
+
+            .token-usage h3 {{
+                width: 100%;
+                text-align: center;
+                margin: 0 0 15px 0;
+            }}
+
+            .token-item {{
+                display: inline-block;
+                padding: 8px 15px;
+                border-radius: 20px;
+                background: white;
+                margin: 5px;
+                font-size: 14px;
+                box-shadow: 0 1px 3px var(--shadow);
+            }}
+
+            .post {{ 
+                margin-bottom: 30px; 
+                padding: 20px;
+                background-color: var(--card-background);
+                border-radius: var(--radius);
+                box-shadow: 0 2px 10px var(--shadow);
+            }}
+
+            .post-title {{ 
+                font-size: 20px; 
+                font-weight: bold; 
+                color: var(--text-color); 
+                line-height: 1.4;
+            }}
+
+            .post-title a {{
+                color: inherit;
+            }}
+
+            .post-meta {{ 
+                color: var(--light-text); 
+                font-size: 14px; 
+                margin: 10px 0;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+            }}
+
+            .meta-item {{
+                margin-right: 12px;
+                display: flex;
+                align-items: center;
+            }}
+
+            .upvotes {{
+                color: var(--primary-color);
+                font-weight: 600;
+                background-color: rgba(255, 69, 0, 0.1);
+                padding: 3px 10px;
+                border-radius: 15px;
+                margin-right: 10px;
+            }}
+
+            .comments-count {{
+                color: var(--secondary-color);
+                background-color: rgba(0, 121, 211, 0.1);
+                padding: 3px 10px;
+                border-radius: 15px;
+            }}
+
+            .summary {{ 
+                background-color: #FFFFFF; 
+                padding: 15px;
+                border-radius: var(--radius); 
+                margin: 15px 0;
+                box-shadow: 0 1px 3px var(--shadow);
+                border-left: 4px solid var(--primary-color);
+            }}
+
+            .comments-summary {{ 
+                border-left: 4px solid var(--secondary-color); 
+                padding: 15px;
+                margin: 15px 0; 
+                background-color: #FFFFFF;
+                border-radius: var(--radius);
+                box-shadow: 0 1px 3px var(--shadow);
+            }}
+
+            .comment {{ 
+                margin: 15px 0; 
+                padding: 10px 15px;
+                border-bottom: 1px solid var(--divider);
+                background-color: #FFFFFF;
+                border-radius: var(--radius);
+            }}
+
+            .comment-meta {{ 
+                color: var(--light-text); 
+                font-size: 14px; 
+                display: flex;
+                align-items: center;
+                margin-bottom: 5px;
+            }}
+
+            .no-posts {{ 
+                color: var(--light-text); 
+                font-style: italic; 
+                text-align: center;
+                padding: 30px;
+            }}
+
+            .indicator {{
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-right: 8px;
+            }}
+
+            .post-indicator {{
+                background-color: var(--primary-color);
+            }}
+
+            .comment-indicator {{
+                background-color: var(--secondary-color);
+            }}
+
+            @media only screen and (max-width: 600px) {{
+                body {{ 
+                    padding: 10px; 
+                }}
+
+                .post {{ 
+                    padding: 15px; 
+                }}
+
+                h1 {{
+                    font-size: 24px;
+                }}
+
+                h2 {{
+                    font-size: 20px;
+                    padding: 10px 15px;
+                }}
+
+            }}
         </style>
+
     </head>
+
     <body>
-        <h1>Reddit Digest: {', '.join([f'r/{s}' for s in subreddits])}</h1>
-        <p>Top posts from {formatted_date}</p>
-        <div class="token-usage">
-            <h3>OpenAI API Usage:</h3>
-            <p>Prompt tokens: {total_prompt_tokens}</p>
-            <p>Completion tokens: {total_completion_tokens}</p>
-            <p>Total tokens: {total_tokens}</p>
-        </div>
+
+        <div class="container">
+
+            <div class="header">
+
+                <h1>Reddit Digest: {', '.join([f'r/{s}' for s in subreddits])}</h1>
+
+                <div class="date">{formatted_date}</div>
+
+            </div>
+
+            <div class="token-usage">
+
+                <h3>OpenAI API Usage</h3>
+
+                <div class="token-item">📤 Prompt: {total_prompt_tokens}</div>
+
+                <div class="token-item">📥 Completion: {total_completion_tokens}</div>
+
+                <div class="token-item">📊 Total: {total_tokens}</div>
+
+            </div>
     """
     
     # Add each subreddit's posts
@@ -342,15 +613,21 @@ def format_email_content(all_subreddit_posts):
             
             html_content += f"""
             <div class="post">
-                <div class="post-title">{i}. <a href="{post['url']}" target="_blank">{post['title']}</a></div>
-                <div class="post-meta">Posted by u/{post['author']} • {post['score']} points • {len(post['comments'])} comments</div>
+                <div class="post-title">
+                    <span class="upvotes">{post['score']}</span>
+                    <a href="{post['url']}" target="_blank">{post['title']}</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">Posted by u/{post['author']}</div>
+                    <div class="meta-item comments-count">{len(post['comments'])} comments</div>
+                </div>
             """
             
             # Add post summary if available, otherwise show the raw post text
             if post_summary:
                 html_content += f"""
                 <div class="summary">
-                    <h3>Post Summary:</h3>
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
                     <p>{post_summary}</p>
                 </div>
                 """
@@ -365,17 +642,20 @@ def format_email_content(all_subreddit_posts):
             if comments_summary:
                 html_content += f"""
                 <div class="comments-summary">
-                    <h3>Comments Summary:</h3>
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
                     <p>{comments_summary}</p>
                 </div>
                 """
             elif post['comments']:
-                html_content += "<h3>Top Comments:</h3>"
+                html_content += "<h3><span class='indicator comment-indicator'></span>Top Comments</h3>"
                 # Show up to 3 comments
                 for j, comment in enumerate(post['comments'][:3], 1):
                     html_content += f"""
                     <div class="comment">
-                        <div class="comment-meta">Comment by u/{comment['author']} • {comment['score']} points</div>
+                        <div class="comment-meta">
+                            <div class="meta-item">u/{comment['author']}</div>
+                            <div class="meta-item">{comment['score']} points</div>
+                        </div>
                         <p>{comment['body'][:200]}{'...' if len(comment['body']) > 200 else ''}</p>
                     </div>
                     """
@@ -593,7 +873,17 @@ def main():
         if total_posts == 0:
             print("No posts found from any subreddit, exiting")
             return
-            
+        
+        # Generate summaries for all posts
+        print("Generating summaries for all posts...")
+        for subreddit, posts in all_subreddit_posts.items():
+            print(f"Summarizing posts from r/{subreddit}...")
+            for post in posts:
+                # Generate summaries for this post
+                summaries = summarize_post(post, subreddit)
+                # Store summaries in the post data
+                post['summaries'] = summaries
+                
         # Format email content
         print("\nGenerating email content...")
         html_content = format_email_content(all_subreddit_posts)

@@ -26,78 +26,17 @@ openai_api_key = os.getenv('OPENAI_API_KEY')
 print(f"OpenAI API key available: {bool(openai_api_key)}") 
 print(f"OpenAI API key length: {len(openai_api_key) if openai_api_key else 0}")
 
-# More robust OpenAI client version detection
-is_openai_modern = False
-
-# First detection method: try accessing a modern client attribute
-try:
-    # This will only exist in modern openai>=1.0.0
-    openai_version = openai.__version__
-    if openai_version and int(openai_version.split('.')[0]) >= 1:
-        is_openai_modern = True
-        print(f"Detected modern OpenAI client version: {openai_version}")
-    else:
-        print(f"Detected legacy OpenAI client version: {openai_version}")
-except (AttributeError, ValueError, IndexError):
-    # Second detection method: try importing legacy module
-    try:
-        import openai.api_resources
-        is_openai_modern = False
-        print("Detected legacy OpenAI client based on module structure")
-    except ImportError:
-        # If this import fails too, we're likely on a modern client
-        is_openai_modern = True
-        print("Detected modern OpenAI client based on module structure")
-
-# Initialize the client based on detected version
+# Use modern OpenAI client (v1.0+)
 if openai_api_key:
     try:
-        if is_openai_modern:
-            try:
-                # Modern client initialization (>=1.0.0) with only the required api_key parameter
-                # Explicitly avoiding any other parameters that might cause issues
-                client = openai.OpenAI(api_key=openai_api_key)
-                openai_client = client
-                print("OpenAI client initialized with modern configuration")
-                
-                # Verify it's correctly initialized by accessing a property
-                # that only exists in the modern client
-                if hasattr(openai_client, 'chat') and hasattr(openai_client.chat, 'completions'):
-                    print("Verified modern OpenAI client configuration")
-                else:
-                    # Fallback if the modern initialization didn't work as expected
-                    print("Warning: Modern client initialization may not be correct, forcing legacy mode")
-                    is_openai_modern = False
-                    openai.api_key = openai_api_key
-                    openai_client = openai
-            except TypeError as te:
-                # Handle the specific proxies error
-                print(f"TypeError during client initialization: {te}")
-                # Try alternative initialization without any default params
-                print("Attempting alternative client initialization")
-                import openai as openai_module
-                client = openai_module.OpenAI(api_key=openai_api_key)
-                openai_client = client
-                print("Alternative client initialization successful")
-        else:
-            # Legacy client initialization (<1.0.0)
-            openai.api_key = openai_api_key
-            openai_client = openai
-            print("OpenAI client initialized with legacy configuration")
-        
-        print(f"OpenAI client initialized successfully: True")
+        openai_client = openai.OpenAI(api_key=openai_api_key)
+        print("OpenAI API key available: True")
     except Exception as e:
         print(f"Error initializing OpenAI client: {e}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        # Set fallback so code can continue - we'll use the global API key approach
-        print("Using fallback global API key approach")
-        openai.api_key = openai_api_key
-        openai_client = openai
-        is_openai_modern = False
+        openai_client = None
 else:
     openai_client = None
-    print("WARNING: OpenAI client not initialized - summaries will be skipped")
+    print("WARNING: OpenAI API key not available - summaries will be skipped")
 
 def connect_to_reddit():
     """Connect to Reddit API"""
@@ -203,7 +142,6 @@ def truncate_to_tokens(text, max_tokens):
 
 def summarize_post_content(post_data, subreddit_name):
     """Use OpenAI to summarize just the Reddit post content"""
-    global is_openai_modern
     print(f"Attempting to summarize post: {post_data['title'][:30]}...")
     if not openai_client:
         print("OpenAI API key not available. Skipping post summarization.")
@@ -243,87 +181,26 @@ def summarize_post_content(post_data, subreddit_name):
             {"role": "user", "content": post_content}
         ]
         
-        # Try to use the correct client approach, with fallback mechanisms
+        # Use modern OpenAI client API (v1.0+)
         try:
-            if is_openai_modern:
-                # Modern client approach (>=1.0.0)
-                print("Using modern OpenAI client API for post summary")
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=150,
-                    temperature=0.5
-                )
-                # Access via object attributes
-                summary = response.choices[0].message.content.strip()
-                usage = {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
-            else:
-                # Legacy client approach (<1.0.0)
-                print("Using legacy OpenAI client API for post summary")
-                response = openai_client.ChatCompletion.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=150,
-                    temperature=0.5
-                )
-                # Access via dictionary indexing
-                summary = response["choices"][0]["message"]["content"].strip()
-                usage = {
-                    "prompt_tokens": response["usage"]["prompt_tokens"],
-                    "completion_tokens": response["usage"]["completion_tokens"],
-                    "total_tokens": response["usage"]["total_tokens"]
-                }
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                max_tokens=150,
+                temperature=0.5
+            )
+            summary = response.choices[0].message.content.strip()
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+            # Return as a dictionary that can be accessed with .get() method
+            return {"summary": summary, "usage": usage}
         except Exception as api_error:
-            # If we get an error indicating we're using the wrong API version,
-            # try the other approach as a fallback
-            error_str = str(api_error)
-            print(f"Initial API call error: {error_str}")
+            print(f"Error during OpenAI API call: {api_error}")
+            raise
             
-            if "no longer supported in openai>=1.0.0" in error_str:
-                # We incorrectly detected legacy client but we have modern
-                print("Fallback to modern OpenAI client API")
-                is_openai_modern = True  # Update the global flag
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=150,
-                    temperature=0.5
-                )
-                summary = response.choices[0].message.content.strip()
-                usage = {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
-            elif "AttributeError" in error_str and "object has no attribute 'chat'" in error_str:
-                # We incorrectly detected modern client but we have legacy
-                print("Fallback to legacy OpenAI client API")
-                is_openai_modern = False  # Update the global flag
-                response = openai_client.ChatCompletion.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=150,
-                    temperature=0.5
-                )
-                summary = response["choices"][0]["message"]["content"].strip()
-                usage = {
-                    "prompt_tokens": response["usage"]["prompt_tokens"],
-                    "completion_tokens": response["usage"]["completion_tokens"],
-                    "total_tokens": response["usage"]["total_tokens"]
-                }
-            else:
-                # Some other error occurred, re-raise
-                raise
-            
-        print("OpenAI API call succeeded!")
-        
-        print(f"Generated post summary for: {post_data['title'][:30]}...")
-        return {"summary": summary, "usage": usage}
-        
     except Exception as e:
         print(f"ERROR generating post summary with OpenAI API: {e}")
         import traceback
@@ -333,7 +210,6 @@ def summarize_post_content(post_data, subreddit_name):
 
 def summarize_comments(post_data, subreddit_name):
     """Generate a summary of the post comments using OpenAI API"""
-    global is_openai_modern
     if not openai_client:
         print("WARNING: OpenAI client not available, skipping comment summary generation")
         return None
@@ -379,85 +255,28 @@ def summarize_comments(post_data, subreddit_name):
             {"role": "user", "content": comments_content}
         ]
         
-        # Try to use the correct client approach, with fallback mechanisms
+        # Use modern OpenAI client API (v1.0+)
         try:
-            if is_openai_modern:
-                # Modern client approach (>=1.0.0)
-                print("Using modern OpenAI client API for comment summary")
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=100,
-                    temperature=0.5
-                )
-                # Access via object attributes
-                summary = response.choices[0].message.content.strip()
-                usage = {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
-            else:
-                # Legacy client approach (<1.0.0)
-                print("Using legacy OpenAI client API for comment summary")
-                response = openai_client.ChatCompletion.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=100,
-                    temperature=0.5
-                )
-                # Access via dictionary indexing
-                summary = response["choices"][0]["message"]["content"].strip()
-                usage = {
-                    "prompt_tokens": response["usage"]["prompt_tokens"],
-                    "completion_tokens": response["usage"]["completion_tokens"],
-                    "total_tokens": response["usage"]["total_tokens"]
-                }
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                max_tokens=100,
+                temperature=0.5
+            )
+            # Access via object attributes
+            summary = response.choices[0].message.content.strip()
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+            print("Comments summary generated successfully")
+            return {"summary": summary, "usage": usage}
         except Exception as api_error:
-            # If we get an error indicating we're using the wrong API version,
-            # try the other approach as a fallback
-            error_str = str(api_error)
-            print(f"Initial API call error for comments summary: {error_str}")
-            
-            if "no longer supported in openai>=1.0.0" in error_str:
-                # We incorrectly detected legacy client but we have modern
-                print("Fallback to modern OpenAI client API for comments")
-                is_openai_modern = True  # Update the global flag
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=100,
-                    temperature=0.5
-                )
-                summary = response.choices[0].message.content.strip()
-                usage = {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
-            elif "AttributeError" in error_str and "object has no attribute 'chat'" in error_str:
-                # We incorrectly detected modern client but we have legacy
-                print("Fallback to legacy OpenAI client API for comments")
-                is_openai_modern = False  # Update the global flag
-                response = openai_client.ChatCompletion.create(
-                    model="gpt-4o",
-                    messages=messages,
-                    max_tokens=100,
-                    temperature=0.5
-                )
-                summary = response["choices"][0]["message"]["content"].strip()
-                usage = {
-                    "prompt_tokens": response["usage"]["prompt_tokens"],
-                    "completion_tokens": response["usage"]["completion_tokens"],
-                    "total_tokens": response["usage"]["total_tokens"]
-                }
-            else:
-                # Some other error occurred, re-raise
-                raise
-            
-        print(f"Generated comments summary for: {post_data['title'][:30]}...")
-        return {"summary": summary, "usage": usage}
-        
+            print(f"Error generating comments summary with OpenAI API: {api_error}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            return None
     except Exception as e:
         print(f"Error generating comments summary with OpenAI API: {e}")
         import traceback

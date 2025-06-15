@@ -53,21 +53,32 @@ except (AttributeError, ValueError, IndexError):
 if openai_api_key:
     try:
         if is_openai_modern:
-            # Modern client initialization (>=1.0.0)
-            client = openai.OpenAI(api_key=openai_api_key)
-            openai_client = client
-            print("OpenAI client initialized with modern configuration")
-            
-            # Verify it's correctly initialized by accessing a property
-            # that only exists in the modern client
-            if hasattr(openai_client, 'chat') and hasattr(openai_client.chat, 'completions'):
-                print("Verified modern OpenAI client configuration")
-            else:
-                # Fallback if the modern initialization didn't work as expected
-                print("Warning: Modern client initialization may not be correct, forcing legacy mode")
-                is_openai_modern = False
-                openai.api_key = openai_api_key
-                openai_client = openai
+            try:
+                # Modern client initialization (>=1.0.0) with only the required api_key parameter
+                # Explicitly avoiding any other parameters that might cause issues
+                client = openai.OpenAI(api_key=openai_api_key)
+                openai_client = client
+                print("OpenAI client initialized with modern configuration")
+                
+                # Verify it's correctly initialized by accessing a property
+                # that only exists in the modern client
+                if hasattr(openai_client, 'chat') and hasattr(openai_client.chat, 'completions'):
+                    print("Verified modern OpenAI client configuration")
+                else:
+                    # Fallback if the modern initialization didn't work as expected
+                    print("Warning: Modern client initialization may not be correct, forcing legacy mode")
+                    is_openai_modern = False
+                    openai.api_key = openai_api_key
+                    openai_client = openai
+            except TypeError as te:
+                # Handle the specific proxies error
+                print(f"TypeError during client initialization: {te}")
+                # Try alternative initialization without any default params
+                print("Attempting alternative client initialization")
+                import openai as openai_module
+                client = openai_module.OpenAI(api_key=openai_api_key)
+                openai_client = client
+                print("Alternative client initialization successful")
         else:
             # Legacy client initialization (<1.0.0)
             openai.api_key = openai_api_key
@@ -77,7 +88,13 @@ if openai_api_key:
         print(f"OpenAI client initialized successfully: True")
     except Exception as e:
         print(f"Error initializing OpenAI client: {e}")
-        openai_client = None
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        # Set fallback so code can continue - we'll use the global API key approach
+        print("Using fallback global API key approach")
+        openai.api_key = openai_api_key
+        openai_client = openai
+        is_openai_modern = False
 else:
     openai_client = None
     print("WARNING: OpenAI client not initialized - summaries will be skipped")

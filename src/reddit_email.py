@@ -363,36 +363,37 @@ def format_email_content(all_subreddit_posts):
             body {{ 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; 
                 margin: 0; 
-                padding: 20px; 
-                line-height: 1.6; 
+                padding: 12px; 
+                line-height: 1.4; 
                 background-color: var(--background);
                 color: var(--text-color);
             }}
             
             h1 {{ 
                 color: var(--primary-color); 
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: 600;
-                margin-bottom: 8px;
+                margin-bottom: 5px;
+                margin-top: 0;
             }}
             
             h2 {{ 
                 color: var(--secondary-color); 
-                font-size: 22px;
+                font-size: 20px;
                 font-weight: 500;
-                padding: 12px 20px;
-                margin: 30px 0 20px 0; 
+                padding: 8px 15px;
+                margin: 20px 0 12px 0; 
                 border-radius: var(--radius);
                 background: linear-gradient(90deg, var(--secondary-color), #2A95E9);
                 color: white;
-                box-shadow: 0 2px 10px var(--shadow);
+                box-shadow: 0 1px 5px var(--shadow);
             }}
             
             h3 {{ 
                 color: var(--secondary-color); 
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 500;
-                margin: 15px 0 5px 0;
+                margin: 10px 0 3px 0;
             }}
 
             a {{ 
@@ -405,7 +406,7 @@ def format_email_content(all_subreddit_posts):
             }}
 
             p {{ 
-                margin: 10px 0; 
+                margin: 6px 0; 
             }}
 
             .container {{
@@ -415,23 +416,23 @@ def format_email_content(all_subreddit_posts):
 
             .header {{
                 text-align: center;
-                padding: 20px 0;
+                padding: 12px 0;
                 border-bottom: 1px solid var(--divider);
-                margin-bottom: 20px;
+                margin-bottom: 12px;
             }}
 
             .date {{
                 color: var(--light-text);
-                font-size: 16px;
-                margin-bottom: 20px;
+                font-size: 14px;
+                margin-bottom: 10px;
             }}
 
             .token-usage {{ 
                 background-color: var(--highlight); 
-                padding: 15px;
+                padding: 10px;
                 border-radius: var(--radius);
-                margin-bottom: 30px; 
-                box-shadow: 0 1px 5px var(--shadow);
+                margin-bottom: 15px; 
+                box-shadow: 0 1px 3px var(--shadow);
                 display: flex;
                 flex-wrap: wrap;
                 justify-content: space-around;
@@ -441,32 +442,34 @@ def format_email_content(all_subreddit_posts):
             .token-usage h3 {{
                 width: 100%;
                 text-align: center;
-                margin: 0 0 15px 0;
+                margin: 0 0 8px 0;
+                font-size: 15px;
             }}
 
             .token-item {{
                 display: inline-block;
-                padding: 8px 15px;
-                border-radius: 20px;
+                padding: 5px 10px;
+                border-radius: 15px;
                 background: white;
-                margin: 5px;
-                font-size: 14px;
-                box-shadow: 0 1px 3px var(--shadow);
+                margin: 3px;
+                font-size: 13px;
+                box-shadow: 0 1px 2px var(--shadow);
             }}
 
             .post {{ 
-                margin-bottom: 30px; 
-                padding: 20px;
+                margin-bottom: 18px; 
+                padding: 12px;
                 background-color: var(--card-background);
                 border-radius: var(--radius);
-                box-shadow: 0 2px 10px var(--shadow);
+                box-shadow: 0 1px 6px var(--shadow);
             }}
 
             .post-title {{ 
-                font-size: 20px; 
+                font-size: 18px; 
                 font-weight: bold; 
                 color: var(--text-color); 
-                line-height: 1.4;
+                line-height: 1.3;
+                margin-bottom: 3px;
             }}
 
             .post-title a {{
@@ -475,15 +478,15 @@ def format_email_content(all_subreddit_posts):
 
             .post-meta {{ 
                 color: var(--light-text); 
-                font-size: 14px; 
-                margin: 10px 0;
+                font-size: 13px; 
+                margin: 5px 0;
                 display: flex;
                 align-items: center;
                 flex-wrap: wrap;
             }}
 
             .meta-item {{
-                margin-right: 12px;
+                margin-right: 10px;
                 display: flex;
                 align-items: center;
             }}
@@ -492,39 +495,41 @@ def format_email_content(all_subreddit_posts):
                 color: var(--primary-color);
                 font-weight: 600;
                 background-color: rgba(255, 69, 0, 0.1);
-                padding: 3px 10px;
-                border-radius: 15px;
-                margin-right: 10px;
+                padding: 2px 8px;
+                border-radius: 12px;
+                margin-right: 8px;
+                font-size: 13px;
             }}
 
             .comments-count {{
                 color: var(--secondary-color);
                 background-color: rgba(0, 121, 211, 0.1);
-                padding: 3px 10px;
-                border-radius: 15px;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 13px;
             }}
 
             .summary {{ 
                 background-color: #FFFFFF; 
-                padding: 15px;
+                padding: 10px;
                 border-radius: var(--radius); 
-                margin: 15px 0;
-                box-shadow: 0 1px 3px var(--shadow);
-                border-left: 4px solid var(--primary-color);
+                margin: 10px 0;
+                box-shadow: 0 1px 2px var(--shadow);
+                border-left: 3px solid var(--primary-color);
             }}
 
             .comments-summary {{ 
-                border-left: 4px solid var(--secondary-color); 
-                padding: 15px;
-                margin: 15px 0; 
+                border-left: 3px solid var(--secondary-color); 
+                padding: 10px;
+                margin: 10px 0; 
                 background-color: #FFFFFF;
                 border-radius: var(--radius);
-                box-shadow: 0 1px 3px var(--shadow);
+                box-shadow: 0 1px 2px var(--shadow);
             }}
 
             .comment {{ 
-                margin: 15px 0; 
-                padding: 10px 15px;
+                margin: 10px 0; 
+                padding: 8px 10px;
                 border-bottom: 1px solid var(--divider);
                 background-color: #FFFFFF;
                 border-radius: var(--radius);

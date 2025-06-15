@@ -21,25 +21,27 @@ from typing import List, Dict, Any
 # Load environment variables
 load_dotenv()
 
-# Set up OpenAI client if API key is available
+# Initialize OpenAI API client
 openai_api_key = os.getenv('OPENAI_API_KEY')
 print(f"OpenAI API key available: {bool(openai_api_key)}") 
 print(f"OpenAI API key length: {len(openai_api_key) if openai_api_key else 0}")
 
+# Make sure proxies don't interfere with API calls
+# Monkey patch the client to avoid proxies issues
+if hasattr(openai, '_client'):
+    if hasattr(openai._client, 'proxies'):
+        openai._client.proxies = None
+
 if openai_api_key:
-    try:
-        # Try initializing with the modern client approach
-        openai_client = openai.OpenAI(api_key=openai_api_key)
-        print("OpenAI client initialized with modern client")
-    except TypeError as e:
-        # Fallback for older versions or other compatibility issues
-        print(f"Error with modern client initialization: {e}")
-        print("Falling back to basic configuration")
-        openai.api_key = openai_api_key
-        openai_client = openai
-        print("OpenAI client initialized with basic configuration")
+    # Always use the simplest, most reliable configuration
+    # Set API key directly on the module
+    openai.api_key = openai_api_key
     
-    print(f"OpenAI client initialized successfully: {bool(openai_client)}")
+    # Use direct module access without any client instantiation
+    openai_client = openai
+    
+    print("OpenAI client initialized with basic configuration")
+    print(f"OpenAI client initialized successfully: True")
 else:
     openai_client = None
     print("WARNING: OpenAI client not initialized - summaries will be skipped")
@@ -187,43 +189,23 @@ def summarize_post_content(post_data, subreddit_name):
             {"role": "user", "content": post_content}
         ]
         
-        # Call OpenAI API with compatibility for both client styles
-        try:
-            # Try modern client approach first
-            response = openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                max_tokens=150,  # Limit response length
-                temperature=0.5  # Lower value for more factual responses
-            )
-        except AttributeError:
-            # Fallback to legacy approach
-            response = openai_client.ChatCompletion.create(
-                model="gpt-4o",
-                messages=messages,
-                max_tokens=150,
-                temperature=0.5
-            )
+        # Use only the legacy approach that's guaranteed to work
+        response = openai_client.ChatCompletion.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=150,
+            temperature=0.5
+        )
         
         print("OpenAI API call succeeded!")
         
-        # Get the summary and usage data with compatibility for both API versions
-        try:
-            # Modern client style
-            summary = response.choices[0].message.content.strip()
-            usage = {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            }
-        except (AttributeError, TypeError):
-            # Legacy client style 
-            summary = response["choices"][0]["message"]["content"].strip()
-            usage = {
-                "prompt_tokens": response["usage"]["prompt_tokens"],
-                "completion_tokens": response["usage"]["completion_tokens"],
-                "total_tokens": response["usage"]["total_tokens"]
-            }
+        # Access data in dictionary format for consistency
+        summary = response["choices"][0]["message"]["content"].strip()
+        usage = {
+            "prompt_tokens": response["usage"]["prompt_tokens"],
+            "completion_tokens": response["usage"]["completion_tokens"],
+            "total_tokens": response["usage"]["total_tokens"]
+        }
         
         print(f"Generated post summary for: {post_data['title'][:30]}...")
         return {"summary": summary, "usage": usage}
@@ -277,47 +259,24 @@ def summarize_comments(post_data, subreddit_name):
                        "longer only if there are multiple detailed technical viewpoints to summarize."
         }
         
-        # Call OpenAI API with compatibility for both client styles
-        try:
-            # Try modern client approach first
-            response = openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    system_message,
-                    {"role": "user", "content": comments_content}
-                ],
-                max_tokens=100,
-                temperature=0.5  # Lower value for more factual responses
-            )
-        except AttributeError:
-            # Fallback to legacy approach
-            response = openai_client.ChatCompletion.create(
-                model="gpt-4o",
-                messages=[
-                    system_message,
-                    {"role": "user", "content": comments_content}
-                ],
-                max_tokens=100,
-                temperature=0.5
-            )
+        # Use only the legacy approach that's guaranteed to work
+        response = openai_client.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                system_message,
+                {"role": "user", "content": comments_content}
+            ],
+            max_tokens=100,
+            temperature=0.5
+        )
         
-        # Get the summary and usage data with compatibility for both API versions
-        try:
-            # Modern client style
-            summary = response.choices[0].message.content.strip()
-            usage = {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            }
-        except (AttributeError, TypeError):
-            # Legacy client style
-            summary = response["choices"][0]["message"]["content"].strip()
-            usage = {
-                "prompt_tokens": response["usage"]["prompt_tokens"],
-                "completion_tokens": response["usage"]["completion_tokens"],
-                "total_tokens": response["usage"]["total_tokens"]
-            }
+        # Access data in dictionary format for consistency
+        summary = response["choices"][0]["message"]["content"].strip()
+        usage = {
+            "prompt_tokens": response["usage"]["prompt_tokens"],
+            "completion_tokens": response["usage"]["completion_tokens"],
+            "total_tokens": response["usage"]["total_tokens"]
+        }
         
         print(f"Generated comments summary for: {post_data['title'][:30]}...")
         return {"summary": summary, "usage": usage}

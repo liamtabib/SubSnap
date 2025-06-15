@@ -9,6 +9,14 @@ on:
 jobs:
   run-digest:
     runs-on: ubuntu-latest
+    env:
+      EMAIL_SENDER: ${{secrets.EMAIL_SENDER}}
+      EMAIL_RECIPIENT: ${{secrets.EMAIL_RECIPIENT}}
+      EMAIL_PASSWORD: ${{secrets.EMAIL_PASSWORD}}
+      REDDIT_CLIENT_ID: ${{secrets.REDDIT_CLIENT_ID}}
+      REDDIT_CLIENT_SECRET: ${{secrets.REDDIT_CLIENT_SECRET}}
+      OPENAI_API_KEY: ${{secrets.OPENAI_API_KEY}}
+      USER_TIMEZONE: 'Europe/Berlin'
     
     steps:
     - name: Check out repository code
@@ -45,14 +53,6 @@ jobs:
         else
           echo "EMAIL_PASSWORD is not set"
         fi
-      env:
-        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-        EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        USER_TIMEZONE: 'Europe/Berlin'
         
     - name: Verify environment setup
       run: |
@@ -72,30 +72,16 @@ jobs:
         else
           echo "OPENAI_API_KEY is not set"
         fi
-      env:
-        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-        EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        USER_TIMEZONE: 'Europe/Berlin'
         
     - name: Pre-check Reddit API
       run: |
         python -c "import praw; import os; print('Checking Reddit API access...'); reddit = praw.Reddit(client_id=os.environ.get('REDDIT_CLIENT_ID'), client_secret=os.environ.get('REDDIT_CLIENT_SECRET'), user_agent='pre-check script'); subreddit = reddit.subreddit('cursor'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/cursor'); subreddit = reddit.subreddit('windsurf'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/windsurf'); subreddit = reddit.subreddit('vibecoding'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/vibecoding')"
-      env:
-        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
 
     - name: Generate test file to confirm subreddit coverage
       run: |
         echo "Testing subreddit availability:" > subreddit_test.log
         python -c "import praw; import os; reddit = praw.Reddit(client_id=os.environ.get('REDDIT_CLIENT_ID'), client_secret=os.environ.get('REDDIT_CLIENT_SECRET'), user_agent='script:reddit-digest-test:v1.0'); cursor = list(reddit.subreddit('cursor').hot(limit=1)); windsurf = list(reddit.subreddit('windsurf').hot(limit=1)); vibecoding = list(reddit.subreddit('vibecoding').hot(limit=1)); print(f'Found {len(cursor)} posts from cursor, {len(windsurf)} posts from windsurf, and {len(vibecoding)} posts from vibecoding', file=open('subreddit_test.log', 'a'))" || echo "Error testing subreddits" >> subreddit_test.log
         cat subreddit_test.log
-      env:
-        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
         
     - name: Run email script
       run: |
@@ -109,15 +95,8 @@ jobs:
         # Run the email script
         python src/reddit_email.py --run-once
       env:
-        # These env vars are already set at the job level but specified here for completeness
-        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+        # Only add variables not set at the job level
         REDDIT_USER_AGENT: "GitHub Actions: Reddit Digest Bot"
-        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-        EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        USER_TIMEZONE: 'Europe/Berlin'
         SMTP_SERVER: 'smtp.gmail.com'
         SMTP_PORT: '587'
         

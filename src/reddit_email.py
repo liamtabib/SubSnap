@@ -312,7 +312,7 @@ def summarize_post(post_data, subreddit_name):
     
     return result
 
-def format_email_content(all_subreddit_posts):
+def format_email_content(all_posts, all_subreddit_posts=None):
     """Format the posts from multiple subreddits into HTML email content"""
     # Get timezone from environment or default to Europe/Berlin (CEST)
     timezone_str = os.getenv('USER_TIMEZONE', 'Europe/Berlin')
@@ -320,15 +320,15 @@ def format_email_content(all_subreddit_posts):
     now = datetime.now(user_timezone)
     formatted_date = now.strftime("%A, %B %d, %Y")
     
-    subreddits = list(all_subreddit_posts.keys())
+    # Get unique subreddits from the posts
+    subreddits = sorted(list(set(post['subreddit'] for post in all_posts)))
     
     # Calculate total token usage
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
     
-    for subreddit in subreddits:
-        for post in all_subreddit_posts[subreddit]:
+    for post in all_posts:
             summaries = post.get('summaries', {})
             if summaries:
                 # Add post summary tokens
@@ -618,16 +618,13 @@ def format_email_content(all_subreddit_posts):
             </div>
     """
     
-    # Add each subreddit's posts
-    for subreddit in subreddits:
-        html_content += f"<h2>r/{subreddit}</h2>"
-        posts = all_subreddit_posts[subreddit]
-        
-        if not posts:
-            html_content += "<p class='no-posts'>No posts today.</p>"
-            continue
-        
-        for i, post in enumerate(posts, 1):
+    # Add all posts sorted by upvotes (highest first)
+    html_content += "<h2>Top Posts (Sorted by Upvotes)</h2>"
+    
+    if not all_posts:
+        html_content += "<p class='no-posts'>No posts found today.</p>"
+    
+    for i, post in enumerate(all_posts, 1):
             # Get summaries if available
             summaries = post.get('summaries', {})
             post_summary = None
@@ -644,6 +641,7 @@ def format_email_content(all_subreddit_posts):
                     <a href="{post['url']}" target="_blank">{post['title']}</a>
                 </div>
                 <div class="post-meta">
+                    <div class="meta-item">r/{post['subreddit']}</div>
                     <div class="meta-item">Posted by u/{post['author']}</div>
                     <div class="meta-item comments-count">{len(post['comments'])} comments</div>
                 </div>
@@ -696,7 +694,7 @@ def format_email_content(all_subreddit_posts):
     
     return html_content
 
-def create_plain_text_content(all_subreddit_posts):
+def create_plain_text_content(all_posts, all_subreddit_posts=None):
     """Create a plain text version of the email content"""
     # Get timezone from environment or default to Europe/Berlin (CEST)
     timezone_str = os.getenv('USER_TIMEZONE', 'Europe/Berlin')
@@ -704,15 +702,15 @@ def create_plain_text_content(all_subreddit_posts):
     now = datetime.now(user_timezone)
     date_str = now.strftime("%A, %B %d, %Y")
     
-    subreddits = list(all_subreddit_posts.keys())
+    # Get unique subreddits from all posts
+    subreddits = sorted(list(set(post['subreddit'] for post in all_posts)))
     
     # Calculate total token usage
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
     
-    for subreddit in subreddits:
-        for post in all_subreddit_posts[subreddit]:
+    for post in all_posts:
             summaries = post.get('summaries', {})
             if summaries:
                 # Add post summary tokens
@@ -740,18 +738,15 @@ def create_plain_text_content(all_subreddit_posts):
     text_content += f"Total tokens: {total_tokens}\n"
     text_content += "=" * 50 + "\n\n"
     
-    # For each subreddit
-    for subreddit in subreddits:
-        posts = all_subreddit_posts[subreddit]
-        if not posts:
-            text_content += f"No posts found from r/{subreddit}\n\n"
-            continue
-            
-        text_content += f"TOP POSTS FROM r/{subreddit}\n"
+    # Check if we have any posts
+    if not all_posts:
+        text_content += "No posts found today\n\n"
+    else:
+        text_content += "TOP POSTS ACROSS ALL SUBREDDITS (SORTED BY UPVOTES)\n"
         text_content += "-" * 50 + "\n\n"
         
-        # For each post
-        for i, post in enumerate(posts, 1):
+        # For each post, sorted by upvotes
+        for i, post in enumerate(all_posts, 1):
             # Get summaries
             summaries = post.get('summaries', {})
             post_summary = None
@@ -762,7 +757,7 @@ def create_plain_text_content(all_subreddit_posts):
                 comments_summary = summaries.get('comments_summary')
                 
             text_content += f"{i}. {post['title']}\n"
-            text_content += f"   Posted by u/{post['author']} | {post['score']} points | {len(post['comments'])} comments\n"
+            text_content += f"   r/{post['subreddit']} | Posted by u/{post['author']} | {post['score']} points | {len(post['comments'])} comments\n"
             text_content += f"   {post['url']}\n\n"
             
             # Add post summary
@@ -825,7 +820,14 @@ def send_email(subject, html_content, recipient_email=None, all_subreddit_posts=
     
     # Create plain text version
     if all_subreddit_posts:
-        plain_text = create_plain_text_content(all_subreddit_posts)
+        # Extract flattened list from the dictionary structure
+        all_flattened_posts = []
+        for posts in all_subreddit_posts.values():
+            all_flattened_posts.extend(posts)
+        # Sort by score in descending order
+        all_flattened_posts.sort(key=lambda x: x['score'], reverse=True)
+        
+        plain_text = create_plain_text_content(all_flattened_posts, all_subreddit_posts)
     else:
         plain_text = "This is the Reddit digest from multiple subreddits - please view in HTML format for better experience."
     
@@ -905,14 +907,27 @@ def main():
         for subreddit, posts in all_subreddit_posts.items():
             print(f"Summarizing posts from r/{subreddit}...")
             for post in posts:
+                # Add subreddit info to the post data
+                post['subreddit'] = subreddit
                 # Generate summaries for this post
                 summaries = summarize_post(post, subreddit)
                 # Store summaries in the post data
                 post['summaries'] = summaries
                 
+        # Flatten all posts into a single list and sort by upvotes
+        all_posts = []
+        for subreddit, posts in all_subreddit_posts.items():
+            all_posts.extend(posts)
+        
+        # Sort all posts by score (upvotes) in descending order
+        all_posts.sort(key=lambda x: x['score'], reverse=True)
+        print(f"Total posts across all subreddits: {len(all_posts)}")
+        print(f"Posts reordered by upvotes (highest first)")
+        
+                
         # Format email content
         print("\nGenerating email content...")
-        html_content = format_email_content(all_subreddit_posts)
+        html_content = format_email_content(all_posts, all_subreddit_posts)
         
         # Debug info about content size
         print(f"Email content generated: {len(html_content)} characters")

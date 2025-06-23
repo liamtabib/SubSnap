@@ -882,7 +882,7 @@ def main():
         print(f"Starting Reddit digest at {datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         
         # Fetch reddit posts from all subreddits
-        subreddits = ['cursor', 'windsurf', 'vibecoding']
+        subreddits = ['cursor', 'windsurf', 'vibecoding', 'Anthropic', 'AI_Agents']
         all_subreddit_posts = fetch_reddit_posts(subreddits)
         
         # Debug output for subreddit posts
@@ -927,7 +927,9 @@ def main():
             print("Subreddit data saved to subreddit_data.txt")
         
         # Send email
-        subject = f"Reddit Digest (r/cursor, r/windsurf & r/vibecoding) - {datetime.now().strftime('%Y-%m-%d')}"
+        # Create dynamic subject that lists all subreddits
+        subreddit_list = ', '.join([f'r/{sub}' for sub in subreddits[:-1]]) + f' & r/{subreddits[-1]}' if len(subreddits) > 1 else f'r/{subreddits[0]}'
+        subject = f"Reddit Digest ({subreddit_list}) - {datetime.now().strftime('%Y-%m-%d')}"
         if send_email(subject, html_content, all_subreddit_posts=all_subreddit_posts):
             print("Email sent successfully")
         else:

@@ -61,13 +61,17 @@ def is_today(timestamp, timezone_str='Europe/Berlin'):
             post_time.day == now.day)
 
 def fetch_reddit_posts(subreddit_names=['cursor', 'windsurf'], limit=10, comment_limit=3):
-    """Fetch today's posts from multiple subreddits and their comments"""
+    """Fetch today's posts from multiple subreddits and their comments
+    
+    Only includes posts with at least 10 upvotes.
+    """
     # Connect to Reddit API
     reddit = connect_to_reddit()
     
     # Get timezone from environment or default to Europe/Berlin (CEST)
     user_timezone = os.getenv('USER_TIMEZONE', 'Europe/Berlin')
     print(f"Using timezone: {user_timezone}")
+    print("Filtering for posts with at least 10 upvotes")
         
     all_subreddit_posts = {}
     
@@ -79,8 +83,8 @@ def fetch_reddit_posts(subreddit_names=['cursor', 'windsurf'], limit=10, comment
             
             # We need to fetch more posts initially since we'll be filtering
             for post in subreddit.hot(limit=limit):
-                # Check if post is from today in user's timezone
-                if is_today(post.created_utc, user_timezone):
+                # Check if post is from today in user's timezone and has at least 10 upvotes
+                if is_today(post.created_utc, user_timezone) and post.score >= 10:
                     post_data = {
                         'title': post.title,
                         'author': post.author.name if post.author else '[deleted]',

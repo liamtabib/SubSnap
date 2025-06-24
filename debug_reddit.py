@@ -14,7 +14,7 @@ reddit = praw.Reddit(
 )
 
 # Test all subreddits
-subreddits = ['cursor', 'windsurf', 'vibecoding', 'Anthropic', 'AI_Agents']
+subreddits = ['cursor', 'windsurf', 'vibecoding', 'Anthropic', 'AI_Agents', 'Linear']
 
 for subreddit_name in subreddits:
     print(f"\nTesting r/{subreddit_name}:")

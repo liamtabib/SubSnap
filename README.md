@@ -1,10 +1,10 @@
 # Reddit Email Digest
 
-This application fetches the top 3 most upvoted posts from the r/cursor subreddit along with their top 3 comments and sends them to your email.
+This application fetches the top 3 most upvoted posts from selected subreddits along with their top 3 comments and sends them to your email.
 
 ## Features
 
-- Fetches top posts from r/cursor subreddit (configurable)
+- Fetches top posts from multiple subreddits (configurable)
 - Extracts the top 3 comments for each post
 - Formats the content into a readable email
 - Sends daily digests or can be run on demand
@@ -28,9 +28,9 @@ This application fetches the top 3 most upvoted posts from the r/cursor subreddi
 1. Go to https://www.reddit.com/prefs/apps
 2. Click "create app" at the bottom
 3. Fill in the details:
-   - Name: cursor_subreddit_digest (or any name you prefer)
+   - Name: reddit_digest (or any name you prefer)
    - Type: script
-   - Description: App to fetch top posts from r/cursor
+   - Description: App to fetch top posts from selected subreddits
    - About URL: (leave blank)
    - Redirect URI: http://localhost (this is required but won't be used)
 4. Click "create app"
@@ -71,4 +71,4 @@ In the `.env` file:
 - `INITIAL_RUN`: If set to "true", runs immediately on startup in addition to scheduled times
 - `RUN_ONCE`: If set to "true", runs once and exits without scheduling
 
-You can also configure which subreddit to monitor and how many posts to fetch by modifying the parameters in the `fetch_top_posts` function call in the script.
+You can also configure which subreddits to monitor and how many posts to fetch by modifying the parameters in the `fetch_reddit_posts` function call in the script.

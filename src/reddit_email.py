@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reddit Email Service - Fetches top posts from r/cursor and sends them via email
+Reddit Email Service - Fetches top posts from selected subreddits and sends them via email
 """
 import os
 import smtplib
@@ -60,7 +60,7 @@ def is_today(timestamp, timezone_str='Europe/Berlin'):
             post_time.month == now.month and 
             post_time.day == now.day)
 
-def fetch_reddit_posts(subreddit_names=['cursor', 'windsurf'], limit=10, comment_limit=3):
+def fetch_reddit_posts(subreddit_names=['windsurf', 'vibecoding'], limit=10, comment_limit=3):
     """Fetch today's posts from multiple subreddits and their comments
     
     Only includes posts with at least 10 upvotes.
@@ -888,7 +888,7 @@ def main():
         print(f"Starting Reddit digest at {datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         
         # Fetch reddit posts from all subreddits
-        subreddits = ['cursor', 'windsurf', 'vibecoding', 'Anthropic', 'AI_Agents', 'Linear', 'ClaudeCode', 'ClaudeAI']
+        subreddits = ['windsurf', 'vibecoding', 'Anthropic', 'AI_Agents', 'Linear', 'ClaudeCode', 'ClaudeAI']
         all_subreddit_posts = fetch_reddit_posts(subreddits)
         
         # Debug output for subreddit posts

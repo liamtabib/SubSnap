@@ -17,6 +17,8 @@ from pytz import timezone as pytz_timezone
 import pytz
 import openai
 from typing import List, Dict, Any
+import re
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -37,6 +39,18 @@ if openai_api_key:
 else:
     openai_client = None
     print("WARNING: OpenAI API key not available - summaries will be skipped")
+
+# Image analysis configuration
+IMAGE_ANALYSIS_CONFIG = {
+    'enabled': os.getenv('ENABLE_IMAGE_ANALYSIS', 'true').lower() == 'true',
+    'max_images_per_post': int(os.getenv('MAX_IMAGES_PER_POST', '2')),
+    'min_post_score': int(os.getenv('IMAGE_ANALYSIS_MIN_SCORE', '25')),
+    'max_cost_per_day': float(os.getenv('IMAGE_ANALYSIS_MAX_COST_PER_DAY', '1.00')),
+    'target_subreddits': [s.strip() for s in os.getenv('IMAGE_ANALYSIS_SUBREDDITS', 'SideProject,ClaudeCode').split(',') if s.strip()],
+    'test_mode': os.getenv('IMAGE_ANALYSIS_TEST_MODE', 'false').lower() == 'true'
+}
+
+print(f"Image analysis config: {IMAGE_ANALYSIS_CONFIG}")
 
 def connect_to_reddit():
     """Connect to Reddit API"""
@@ -59,6 +73,132 @@ def is_today(timestamp, timezone_str='Europe/Berlin'):
     return (post_time.year == now.year and 
             post_time.month == now.month and 
             post_time.day == now.day)
+
+def detect_images_from_url(post_url, post_body=""):
+    """Extract image URLs from Reddit post URL and body - no PRAW needed"""
+    images = []
+    
+    # Direct Reddit image posts (i.redd.it)
+    if 'i.redd.it' in post_url:
+        images.append(post_url)
+    
+    # Imgur direct links
+    elif 'imgur.com' in post_url and not post_url.endswith('/'):
+        normalized_url = normalize_imgur_url(post_url)
+        if normalized_url:
+            images.append(normalized_url)
+    
+    # Extract image URLs from post body text
+    if post_body:
+        body_images = extract_image_urls_from_text(post_body)
+        images.extend(body_images)
+    
+    # Remove duplicates and limit to 2 images for cost control
+    unique_images = list(dict.fromkeys(images))
+    return unique_images[:2]
+
+def normalize_imgur_url(url):
+    """Convert imgur.com/abc to i.imgur.com/abc.jpg"""
+    try:
+        if 'i.imgur.com' in url:
+            return url
+        if 'imgur.com/' in url:
+            # Extract image ID from URL
+            parts = url.split('/')
+            if len(parts) > 3:
+                img_id = parts[-1].split('.')[0]  # Remove extension if present
+                return f"https://i.imgur.com/{img_id}.jpg"
+    except Exception as e:
+        print(f"Error normalizing imgur URL {url}: {e}")
+    return None
+
+def extract_image_urls_from_text(text):
+    """Extract image URLs from text using regex"""
+    image_urls = []
+    
+    # Common image URL patterns (no capture groups to avoid tuple returns)
+    url_patterns = [
+        r'https?://i\.redd\.it/[^\s]+',
+        r'https?://i\.imgur\.com/[^\s]+\.(?:jpg|jpeg|png|gif|webp)',
+        r'https?://imgur\.com/[^\s]+',
+        r'https?://[^\s]+\.(?:jpg|jpeg|png|gif|webp)'
+    ]
+    
+    for pattern in url_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        image_urls.extend(matches)
+    
+    # Normalize imgur URLs
+    normalized_urls = []
+    for url in image_urls:
+        if 'imgur.com' in url and 'i.imgur.com' not in url:
+            normalized = normalize_imgur_url(url)
+            if normalized:
+                normalized_urls.append(normalized)
+        else:
+            normalized_urls.append(url)
+    
+    return normalized_urls
+
+def should_analyze_images(post_score, post_body, subreddit_name, post_url):
+    """Decide if this post warrants image analysis"""
+    # Configuration check
+    if not IMAGE_ANALYSIS_CONFIG['enabled']:
+        return False
+    
+    # Only for specific subreddits
+    if subreddit_name not in IMAGE_ANALYSIS_CONFIG['target_subreddits']:
+        return False
+    
+    # Only for high-engagement or image-likely posts
+    high_engagement = post_score >= IMAGE_ANALYSIS_CONFIG['min_post_score']
+    minimal_text = len(post_body) < 100
+    likely_image_post = any(domain in post_url for domain in ['imgur.com', 'i.redd.it'])
+    
+    result = high_engagement or minimal_text or likely_image_post
+    
+    if IMAGE_ANALYSIS_CONFIG['test_mode'] and result:
+        print(f"Will analyze images for post (score: {post_score}, text_len: {len(post_body)}, url: {post_url[:50]}...)")
+    
+    return result
+
+def validate_image_urls(image_urls, timeout=5):
+    """Check if images are actually accessible"""
+    valid_urls = []
+    
+    for url in image_urls:
+        try:
+            # Quick HEAD request to check if image exists
+            response = requests.head(url, timeout=timeout, allow_redirects=True)
+            if response.status_code == 200:
+                content_type = response.headers.get('content-type', '').lower()
+                if 'image' in content_type:
+                    valid_urls.append(url)
+                    print(f"Valid image found: {url}")
+                else:
+                    print(f"URL not an image: {url} (content-type: {content_type})")
+            else:
+                print(f"Image not accessible: {url} (status: {response.status_code})")
+        except requests.RequestException as e:
+            print(f"Error validating image {url}: {e}")
+        except Exception as e:
+            print(f"Unexpected error validating image {url}: {e}")
+    
+    return valid_urls
+
+def calculate_multimodal_cost(text_usage, image_count):
+    """Calculate estimated cost including images"""
+    if not text_usage:
+        return 0
+    
+    # GPT-4o pricing (as of 2025)
+    prompt_tokens = text_usage.get('prompt_tokens', 0)
+    completion_tokens = text_usage.get('completion_tokens', 0)
+    
+    text_cost = (prompt_tokens * 0.005 + completion_tokens * 0.015) / 1000
+    image_cost = image_count * 0.00765  # Per image cost for low detail
+    
+    return text_cost + image_cost
 
 def fetch_reddit_posts(subreddit_names=['windsurf', 'vibecoding'], limit=10, comment_limit=3):
     """Fetch today's posts from multiple subreddits and their comments
@@ -92,8 +232,15 @@ def fetch_reddit_posts(subreddit_names=['windsurf', 'vibecoding'], limit=10, com
                         'url': f'https://www.reddit.com{post.permalink}',
                         'body': post.selftext,
                         'created_time': datetime.fromtimestamp(post.created_utc).strftime('%Y-%m-%d %H:%M:%S'),
-                        'comments': []
+                        'comments': [],
+                        'image_urls': detect_images_from_url(
+                            post.url, post.selftext
+                        ) if should_analyze_images(post.score, post.selftext, subreddit_name, post.url) else []
                     }
+                    
+                    # Debug logging for image detection
+                    if IMAGE_ANALYSIS_CONFIG['test_mode'] and post_data['image_urls']:
+                        print(f"DEBUG: Post '{post.title[:30]}...' has {len(post_data['image_urls'])} images: {post_data['image_urls']}")
                     
                     post.comment_sort = 'top'
                     post.comments.replace_more(limit=0)
@@ -144,9 +291,137 @@ def truncate_to_tokens(text, max_tokens):
     return text[:char_limit] + "... [truncated]"
 
 
-def summarize_post_content(post_data, subreddit_name):
-    """Use OpenAI to summarize just the Reddit post content"""
+def create_multimodal_system_prompt(subreddit_name, has_images):
+    """Create system prompt optimized for multimodal content"""
+    base_prompt = f"You are summarizing a Reddit post from r/{subreddit_name}. "
+    
+    if has_images:
+        base_prompt += """
+The post includes both text and images. When analyzing images:
+- For screenshots: Describe key UI elements, code, or technical details shown
+- For diagrams: Explain the concepts or architecture illustrated  
+- For product demos: Describe what's being showcased
+- For code/terminal screenshots: Mention key technical details visible
+- Integrate visual and text information into a cohesive summary
+
+IMPORTANT: Keep image descriptions concise and relevant to the post's main point.
+"""
+    
+    base_prompt += """
+IMPORTANT CURRENT KNOWLEDGE (2025):
+- Claude Code: Anthropic's official CLI tool for Claude, enables terminal-based AI coding assistance with file editing and command execution
+- Vibe Coding: A development approach centered on using AI-driven workflows and tools for coding efficiency
+- MCP (Model Context Protocol): A protocol that allows AI models to interface with external tools and systems
+- o3: An OpenAI large language model similar to GPT-4o but with specific tooling optimizations
+- RAG: Retrieval Augmented Generation, a technique for enhancing AI responses with retrieved context
+- Claude 4: Anthropic's flagship large language model released in 2024-2025
+- AI Agents: Autonomous systems that can perform tasks, make decisions, and interact with APIs/tools
+- SideProject: Term for personal projects developers build in their spare time, often to solve problems or learn new technologies
+- Linear: A project management and issue tracking tool popular with development teams
+- Anthropic: AI safety company that created Claude, focused on developing helpful, harmless, and honest AI systems
+
+Use casual, conversational language. Keep summaries proportional to content complexity.
+DO NOT use emojis. DO NOT address the reader directly. Give a concise, brief summary of what the post actually says.
+"""
+    
+    return base_prompt
+
+def summarize_post_content_multimodal(post_data, subreddit_name):
+    """Enhanced post summarization with optional image analysis"""
     print(f"Attempting to summarize post: {post_data['title'][:30]}...")
+    
+    if not openai_client:
+        print("OpenAI API key not available. Skipping post summarization.")
+        return None
+    
+    # Check if we have images to process
+    image_urls = post_data.get('image_urls', [])
+    has_images = len(image_urls) > 0
+    
+    # Validate images if we have them
+    valid_images = []
+    if has_images:
+        print(f"Found {len(image_urls)} potential images, validating...")
+        valid_images = validate_image_urls(image_urls)
+        print(f"Validated {len(valid_images)} accessible images")
+        has_images = len(valid_images) > 0
+    
+    try:
+        # Prepare content for API call
+        if has_images:
+            # Multimodal content array
+            content_array = []
+            
+            # Add text content
+            title = post_data['title']
+            body = truncate_to_tokens(post_data['body'], 700)
+            text_content = f"Title: {title}\n\nContent: {body}"
+            content_array.append({"type": "text", "text": text_content})
+            
+            # Add images (limit to config max)
+            max_images = IMAGE_ANALYSIS_CONFIG['max_images_per_post']
+            for img_url in valid_images[:max_images]:
+                content_array.append({
+                    "type": "image_url",
+                    "image_url": {"url": img_url, "detail": "low"}  # Use low detail for cost efficiency
+                })
+            
+            print(f"Processing {len(valid_images[:max_images])} images with text content")
+        else:
+            # Text-only content
+            title = post_data['title']
+            body = truncate_to_tokens(post_data['body'], 700)
+            content_array = f"Title: {title}\n\nContent: {body}"
+        
+        # Create system message
+        system_message = {
+            "role": "system",
+            "content": create_multimodal_system_prompt(subreddit_name, has_images)
+        }
+        
+        # Create message array
+        messages = [
+            system_message,
+            {"role": "user", "content": content_array}
+        ]
+        
+        # API call with potential image support
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=200 if has_images else 150,  # More tokens for image descriptions
+            temperature=0.5
+        )
+        
+        summary = response.choices[0].message.content.strip()
+        usage = {
+            "prompt_tokens": response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+            "images_processed": len(valid_images[:max_images]) if has_images else 0,
+            "estimated_cost": calculate_multimodal_cost(response.usage.__dict__, len(valid_images[:max_images]) if has_images else 0)
+        }
+        
+        if has_images:
+            print(f"Multimodal summary generated with {len(valid_images[:max_images])} images (cost: ${usage['estimated_cost']:.4f})")
+        else:
+            print("Text-only summary generated")
+        
+        return {"summary": summary, "usage": usage}
+        
+    except Exception as e:
+        print(f"ERROR generating multimodal summary: {e}")
+        # Fallback to text-only if multimodal fails
+        if has_images:
+            print("Falling back to text-only summary...")
+            post_data_copy = post_data.copy()
+            post_data_copy['image_urls'] = []  # Remove images for fallback
+            return summarize_post_content_text_only(post_data_copy, subreddit_name)
+        return None
+
+def summarize_post_content_text_only(post_data, subreddit_name):
+    """Original text-only summarization (fallback)"""
+    print(f"Attempting to summarize post (text-only): {post_data['title'][:30]}...")
     if not openai_client:
         print("OpenAI API key not available. Skipping post summarization.")
         return None
@@ -163,13 +438,16 @@ def summarize_post_content(post_data, subreddit_name):
             "role": "system",
             "content": f"You are summarizing a Reddit post from r/{subreddit_name}. "
                        "IMPORTANT CURRENT KNOWLEDGE (2025): "
-                       "- Cursor: An AI-powered code editor with GPT-4o integration and code generation capabilities. "
-                       "- Windsurf: A competing AI IDE, owned by OpenAI as of 2024, with advanced coding assistance and code editing features. "
+                       "- Claude Code: Anthropic's official CLI tool for Claude, enables terminal-based AI coding assistance with file editing and command execution. "
                        "- Vibe Coding: A development approach centered on using AI-driven workflows and tools for coding efficiency. "
-                       "- MCP (Model Context Protocol): A protocol that allows AI models to interface with external tools and systems, defining how models interact with API endpoints. "
+                       "- MCP (Model Context Protocol): A protocol that allows AI models to interface with external tools and systems. "
                        "- o3: An OpenAI large language model similar to GPT-4o but with specific tooling optimizations. "
                        "- RAG: Retrieval Augmented Generation, a technique for enhancing AI responses with retrieved context. "
                        "- Claude 4: Anthropic's flagship large language model released in 2024-2025. "
+                       "- AI Agents: Autonomous systems that can perform tasks, make decisions, and interact with APIs/tools. "
+                       "- SideProject: Term for personal projects developers build in their spare time, often to solve problems or learn new technologies. "
+                       "- Linear: A project management and issue tracking tool popular with development teams. "
+                       "- Anthropic: AI safety company that created Claude, focused on developing helpful, harmless, and honest AI systems. "
                        "IMPORTANT: Give a concise, brief summary of ONLY what the post actually says. DO NOT respond to the post. "
                        "DO NOT add your own commentary, questions, or direct address to the reader. "
                        "DO NOT use emojis or emoticons in your summary. "
@@ -210,6 +488,11 @@ def summarize_post_content(post_data, subreddit_name):
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
         return None
+
+def summarize_post_content(post_data, subreddit_name):
+    """Main entry point for post summarization - chooses multimodal or text-only"""
+    # Use multimodal function which handles both cases
+    return summarize_post_content_multimodal(post_data, subreddit_name)
 
 
 def summarize_comments(post_data, subreddit_name):
@@ -323,10 +606,12 @@ def format_email_content(all_posts, all_subreddit_posts=None):
     # Get unique subreddits from the posts
     subreddits = sorted(list(set(post['subreddit'] for post in all_posts)))
     
-    # Calculate total token usage
+    # Calculate total token usage including images
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
+    total_images_processed = 0
+    total_estimated_cost = 0
     
     for post in all_posts:
             summaries = post.get('summaries', {})
@@ -337,6 +622,8 @@ def format_email_content(all_posts, all_subreddit_posts=None):
                     total_prompt_tokens += post_usage.get('prompt_tokens', 0)
                     total_completion_tokens += post_usage.get('completion_tokens', 0)
                     total_tokens += post_usage.get('total_tokens', 0)
+                    total_images_processed += post_usage.get('images_processed', 0)
+                    total_estimated_cost += post_usage.get('estimated_cost', 0)
                 
                 # Add comments summary tokens
                 comments_usage = summaries.get('comments_usage', {})
@@ -615,6 +902,10 @@ def format_email_content(all_posts, all_subreddit_posts=None):
 
                 <div class="token-item">📊 Total: {total_tokens}</div>
 
+                <div class="token-item">🖼️ Images: {total_images_processed}</div>
+
+                <div class="token-item">💰 Est. Cost: ${total_estimated_cost:.4f}</div>
+
             </div>
     """
     
@@ -705,10 +996,12 @@ def create_plain_text_content(all_posts, all_subreddit_posts=None):
     # Get unique subreddits from all posts
     subreddits = sorted(list(set(post['subreddit'] for post in all_posts)))
     
-    # Calculate total token usage
+    # Calculate total token usage including images
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
+    total_images_processed = 0
+    total_estimated_cost = 0
     
     for post in all_posts:
             summaries = post.get('summaries', {})
@@ -719,6 +1012,8 @@ def create_plain_text_content(all_posts, all_subreddit_posts=None):
                     total_prompt_tokens += post_usage.get('prompt_tokens', 0)
                     total_completion_tokens += post_usage.get('completion_tokens', 0)
                     total_tokens += post_usage.get('total_tokens', 0)
+                    total_images_processed += post_usage.get('images_processed', 0)
+                    total_estimated_cost += post_usage.get('estimated_cost', 0)
                 
                 # Add comments summary tokens
                 comments_usage = summaries.get('comments_usage', {})
@@ -736,6 +1031,8 @@ def create_plain_text_content(all_posts, all_subreddit_posts=None):
     text_content += f"Prompt tokens: {total_prompt_tokens}\n"
     text_content += f"Completion tokens: {total_completion_tokens}\n"
     text_content += f"Total tokens: {total_tokens}\n"
+    text_content += f"Images processed: {total_images_processed}\n"
+    text_content += f"Estimated cost: ${total_estimated_cost:.4f}\n"
     text_content += "=" * 50 + "\n\n"
     
     # Check if we have any posts
@@ -924,6 +1221,13 @@ def main():
         print(f"Total posts across all subreddits: {len(all_posts)}")
         print(f"Posts reordered by upvotes (highest first)")
         
+        # Log image analysis results if in test mode
+        if IMAGE_ANALYSIS_CONFIG['test_mode']:
+            posts_with_images = [p for p in all_posts if p.get('image_urls')]
+            print(f"\nImage Analysis Summary:")
+            print(f"- Posts with detected images: {len(posts_with_images)}")
+            for post in posts_with_images:
+                print(f"  - '{post['title'][:40]}...' has {len(post['image_urls'])} images")
                 
         # Format email content
         print("\nGenerating email content...")

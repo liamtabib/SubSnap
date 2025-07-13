@@ -75,12 +75,12 @@ jobs:
         
     - name: Pre-check Reddit API
       run: |
-        python -c "import praw; import os; print('Checking Reddit API access...'); reddit = praw.Reddit(client_id=os.environ.get('REDDIT_CLIENT_ID'), client_secret=os.environ.get('REDDIT_CLIENT_SECRET'), user_agent='pre-check script'); subreddit = reddit.subreddit('cursor'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/cursor'); subreddit = reddit.subreddit('windsurf'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/windsurf'); subreddit = reddit.subreddit('vibecoding'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/vibecoding')"
+        python -c "import praw; import os; print('Checking Reddit API access...'); reddit = praw.Reddit(client_id=os.environ.get('REDDIT_CLIENT_ID'), client_secret=os.environ.get('REDDIT_CLIENT_SECRET'), user_agent='pre-check script'); subreddit = reddit.subreddit('SideProject'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/SideProject'); subreddit = reddit.subreddit('ClaudeCode'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/ClaudeCode'); subreddit = reddit.subreddit('vibecoding'); print(f'Found {len(list(subreddit.hot(limit=3)))} posts in r/vibecoding')"
 
     - name: Generate test file to confirm subreddit coverage
       run: |
         echo "Testing subreddit availability:" > subreddit_test.log
-        python -c "import praw; import os; reddit = praw.Reddit(client_id=os.environ.get('REDDIT_CLIENT_ID'), client_secret=os.environ.get('REDDIT_CLIENT_SECRET'), user_agent='script:reddit-digest-test:v1.0'); cursor = list(reddit.subreddit('cursor').hot(limit=1)); windsurf = list(reddit.subreddit('windsurf').hot(limit=1)); vibecoding = list(reddit.subreddit('vibecoding').hot(limit=1)); print(f'Found {len(cursor)} posts from cursor, {len(windsurf)} posts from windsurf, and {len(vibecoding)} posts from vibecoding', file=open('subreddit_test.log', 'a'))" || echo "Error testing subreddits" >> subreddit_test.log
+        python -c "import praw; import os; reddit = praw.Reddit(client_id=os.environ.get('REDDIT_CLIENT_ID'), client_secret=os.environ.get('REDDIT_CLIENT_SECRET'), user_agent='script:reddit-digest-test:v1.0'); sideproject = list(reddit.subreddit('SideProject').hot(limit=1)); claudecode = list(reddit.subreddit('ClaudeCode').hot(limit=1)); vibecoding = list(reddit.subreddit('vibecoding').hot(limit=1)); print(f'Found {len(sideproject)} posts from SideProject, {len(claudecode)} posts from ClaudeCode, and {len(vibecoding)} posts from vibecoding', file=open('subreddit_test.log', 'a'))" || echo "Error testing subreddits" >> subreddit_test.log
         cat subreddit_test.log
         
     - name: Run email script
@@ -106,7 +106,7 @@ jobs:
         echo "=== Email HTML Content Length ==="
         if [ -f "last_email_content.html" ]; then
           wc -l last_email_content.html
-          grep -i "windsurf" last_email_content.html | wc -l
+          grep -i "sideproject\|claudecode" last_email_content.html | wc -l
           echo "Sample of HTML content:"
           head -n 20 last_email_content.html
         else

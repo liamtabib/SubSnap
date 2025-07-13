@@ -17,12 +17,14 @@ jobs:
       REDDIT_CLIENT_SECRET: ${{secrets.REDDIT_CLIENT_SECRET}}
       OPENAI_API_KEY: ${{secrets.OPENAI_API_KEY}}
       USER_TIMEZONE: 'Europe/Berlin'
-      # Web search configuration (conservative defaults for production)
-      WEB_SEARCH_ENABLED: 'false'  # Start disabled for safety
+      # Web search configuration (production-ready defaults)
+      WEB_SEARCH_ENABLED: 'true'  # Web search is now stable and enabled
       WEB_SEARCH_TEST_MODE: 'false'
-      WEB_SEARCH_DAILY_LIMIT: '5'  # Conservative limit
-      WEB_SEARCH_COST_LIMIT: '0.25'  # $0.25 daily limit
-      WEB_SEARCH_MIN_SCORE: '50'  # Higher threshold for production
+      WEB_SEARCH_DAILY_LIMIT: '12'  # Reasonable daily limit
+      WEB_SEARCH_COST_LIMIT: '1.00'  # $1.00 daily limit
+      WEB_SEARCH_MIN_SCORE: '20'  # Lower threshold for broader coverage
+      WEB_SEARCH_SUBREDDITS: 'SideProject,ClaudeCode,ClaudeAI,AI_Agents'
+      WEB_SEARCH_KEYWORDS: 'launched,released,new version,pricing,acquired,funding,announcement,beta,available now,update,feature'
     
     steps:
     - name: Check out repository code

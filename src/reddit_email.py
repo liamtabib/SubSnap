@@ -57,17 +57,17 @@ print(f"Image analysis config: {IMAGE_ANALYSIS_CONFIG}")
 
 # Web search configuration
 WEB_SEARCH_CONFIG = {
-    'enabled': os.getenv('WEB_SEARCH_ENABLED', 'false').lower() == 'true',
-    'daily_limit': int(os.getenv('WEB_SEARCH_DAILY_LIMIT', '8')),
-    'cost_limit_per_day': float(os.getenv('WEB_SEARCH_COST_LIMIT', '0.50')),
+    'enabled': os.getenv('WEB_SEARCH_ENABLED', 'true').lower() == 'true',
+    'daily_limit': int(os.getenv('WEB_SEARCH_DAILY_LIMIT', '15')),
+    'cost_limit_per_day': float(os.getenv('WEB_SEARCH_COST_LIMIT', '1.50')),
     'cost_per_search': float(os.getenv('WEB_SEARCH_COST_PER_CALL', '0.03')),
-    'min_post_score': int(os.getenv('WEB_SEARCH_MIN_SCORE', '25')),
-    'target_subreddits': [s.strip() for s in os.getenv('WEB_SEARCH_SUBREDDITS', 'SideProject,ClaudeCode').split(',') if s.strip()],
-    'trigger_keywords': [s.strip() for s in os.getenv('WEB_SEARCH_KEYWORDS', 'launched,released,new version,pricing,acquired,funding,announcement,beta,available now').split(',') if s.strip()],
-    'external_domains': [s.strip() for s in os.getenv('WEB_SEARCH_DOMAINS', 'github.com,producthunt.com,ycombinator.com,techcrunch.com').split(',') if s.strip()],
+    'min_post_score': int(os.getenv('WEB_SEARCH_MIN_SCORE', '15')),
+    'target_subreddits': [s.strip() for s in os.getenv('WEB_SEARCH_SUBREDDITS', 'SideProject,ClaudeCode,ClaudeAI,AI_Agents').split(',') if s.strip()],
+    'trigger_keywords': [s.strip() for s in os.getenv('WEB_SEARCH_KEYWORDS', 'launched,released,new version,pricing,acquired,funding,announcement,beta,available now,update,feature').split(',') if s.strip()],
+    'external_domains': [s.strip() for s in os.getenv('WEB_SEARCH_DOMAINS', 'github.com,producthunt.com,ycombinator.com,techcrunch.com,apps.apple.com,play.google.com').split(',') if s.strip()],
     'test_mode': os.getenv('WEB_SEARCH_TEST_MODE', 'false').lower() == 'true',
-    'circuit_breaker_threshold': int(os.getenv('WEB_SEARCH_FAILURE_THRESHOLD', '3')),
-    'circuit_breaker_timeout': int(os.getenv('WEB_SEARCH_RECOVERY_TIMEOUT', '3600'))  # 1 hour
+    'circuit_breaker_threshold': int(os.getenv('WEB_SEARCH_FAILURE_THRESHOLD', '5')),
+    'circuit_breaker_timeout': int(os.getenv('WEB_SEARCH_RECOVERY_TIMEOUT', '1800'))  # 30 minutes
 }
 
 print(f"Web search config: {WEB_SEARCH_CONFIG}")
@@ -323,7 +323,7 @@ def should_use_web_search(post_data, subreddit_name):
         return False
     
     score = calculate_web_search_score(post_data, subreddit_name)
-    threshold = 40  # Require multiple signals
+    threshold = 30  # Require moderate signals for web search
     
     result = score >= threshold
     
@@ -667,16 +667,17 @@ def create_web_search_system_prompt(subreddit_name, has_images):
     web_search_instructions = """
 
 WEB SEARCH CAPABILITIES:
-You have access to web search to find current information. Use it when:
-- The post mentions specific products, services, or companies that might have recent updates
-- There are claims about pricing, availability, or features that should be verified
-- New announcements, launches, or releases are discussed
-- You need current context to provide accurate information
+You have access to web search to enhance summaries with current information.
 
-When using web search results in your summary:
-- Briefly mention current information found (e.g., "Current pricing shows..." or "Recent updates indicate...")
-- Only include information that adds valuable context to the post
-- Keep web-sourced information concise and relevant
+CRITICAL: Keep summaries concise (2-3 sentences max). Web search should add VALUE, not LENGTH.
+
+When web search provides useful context:
+- Add 1-2 brief sentences with current info (e.g., "The app is available on Google Play as 'AppName'" or "Recent updates show pricing at $X/month")
+- Only mention information that directly relates to the post
+- Do NOT include detailed feature lists, competitor analysis, or lengthy explanations
+- Focus on: current availability, recent changes, or factual corrections only
+
+ALWAYS prioritize brevity over completeness. A short, accurate summary is better than a long, detailed one.
 """
     
     return base_prompt + web_search_instructions
@@ -754,32 +755,63 @@ def summarize_post_content_with_web_search(post_data, subreddit_name):
                     "image_url": {"url": img_url, "detail": "low"}
                 })
         
-        # Create system message
-        system_message = {
-            "role": "system",
-            "content": create_web_search_system_prompt(subreddit_name, has_images)
-        }
+        # Prepare input for Responses API (following correct format from documentation)
+        system_prompt = create_web_search_system_prompt(subreddit_name, has_images)
         
-        # Create message array
-        messages = [
-            system_message,
-            {"role": "user", "content": content_array}
-        ]
+        # Use correct Responses API format based on cookbook examples
+        if has_images and len(valid_images) > 0:
+            # Multimodal content with images (following cookbook format)
+            input_content = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"{system_prompt}\n\nAnalyze this Reddit post: {text_content}"
+                        }
+                    ] + [
+                        {
+                            "type": "input_image",
+                            "image_url": img_url
+                        } for img_url in valid_images[:min(len(valid_images), IMAGE_ANALYSIS_CONFIG['max_images_per_post'])]
+                    ]
+                }
+            ]
+        else:
+            # Text-only content (simple string format)
+            input_content = f"{system_prompt}\n\nAnalyze this Reddit post: {text_content}"
         
         # API call with web search tool using Responses API
         response = openai_client.responses.create(
             model="gpt-4o",
-            messages=messages,
-            tools=[{"type": "web_search"}],
-            max_tokens=250,
-            temperature=0.5
+            input=input_content,
+            tools=[{"type": "web_search"}]
         )
         
         # Record successful search
         web_search_manager.circuit_breaker.record_success()
         
-        # Extract summary and usage
-        summary = response.choices[0].message.content.strip()
+        # Extract summary and usage (Responses API format)
+        if hasattr(response, 'choices') and response.choices:
+            # Standard Chat Completions format
+            summary = response.choices[0].message.content.strip()
+        elif hasattr(response, 'output') and response.output:
+            # Responses API format - extract from output array
+            summary = ""
+            for output_item in response.output:
+                if hasattr(output_item, 'type') and output_item.type == 'message':
+                    if hasattr(output_item, 'content') and output_item.content:
+                        for content_item in output_item.content:
+                            if hasattr(content_item, 'text'):
+                                summary = content_item.text.strip()
+                                break
+                    break
+            if not summary:
+                # Fallback - convert to string and try to extract
+                summary = str(response).strip()
+        else:
+            # Fallback - try to find content in response
+            summary = str(response).strip()
         
         # Check if web search was actually used (Responses API format)
         web_search_used = False
@@ -811,18 +843,48 @@ def summarize_post_content_with_web_search(post_data, subreddit_name):
             ]):
                 web_search_used = True
         
-        usage = {
-            "prompt_tokens": response.usage.prompt_tokens,
-            "completion_tokens": response.usage.completion_tokens,
-            "total_tokens": response.usage.total_tokens,
-            "images_processed": len(valid_images[:max_images]) if has_images else 0,
-            "web_search_used": web_search_used,
-            "web_search_cost": WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0,
-            "estimated_cost": calculate_multimodal_cost(
-                response.usage.__dict__, 
-                len(valid_images[:max_images]) if has_images else 0
-            ) + (WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0)
-        }
+        # Handle different usage object formats between APIs
+        try:
+            # Try Responses API format first
+            if hasattr(response.usage, 'input_tokens'):
+                usage = {
+                    "prompt_tokens": response.usage.input_tokens,
+                    "completion_tokens": response.usage.output_tokens,
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
+                    "images_processed": len(valid_images[:max_images]) if has_images else 0,
+                    "web_search_used": web_search_used,
+                    "web_search_cost": WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0,
+                    "estimated_cost": calculate_multimodal_cost({
+                        'prompt_tokens': response.usage.input_tokens,
+                        'completion_tokens': response.usage.output_tokens
+                    }, len(valid_images[:max_images]) if has_images else 0) + (WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0)
+                }
+            else:
+                # Chat Completions API format
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                    "images_processed": len(valid_images[:max_images]) if has_images else 0,
+                    "web_search_used": web_search_used,
+                    "web_search_cost": WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0,
+                    "estimated_cost": calculate_multimodal_cost(
+                        response.usage.__dict__, 
+                        len(valid_images[:max_images]) if has_images else 0
+                    ) + (WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0)
+                }
+        except AttributeError as e:
+            # Fallback if usage structure is unexpected
+            print(f"WARNING: Unexpected usage object structure: {e}")
+            usage = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "images_processed": len(valid_images[:max_images]) if has_images else 0,
+                "web_search_used": web_search_used,
+                "web_search_cost": WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0,
+                "estimated_cost": WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0
+            }
         
         # Update cost tracking with actual usage
         if web_search_used:

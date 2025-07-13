@@ -1,5 +1,20 @@
 # Web Search Integration Guide
 
+## Quick Start
+
+Web search is **enabled by default** with production-ready settings. The system automatically enhances high-value posts with real-time web information.
+
+To run with web search:
+```bash
+python src/reddit_email.py --run-once
+```
+
+To test with verbose logging:
+```bash
+export WEB_SEARCH_TEST_MODE=true
+python src/reddit_email.py --run-once
+```
+
 ## Overview
 
 The Reddit Digest now supports enhanced post summarization using OpenAI's Responses API with web search capabilities. This feature augments summaries with real-time information from the web when analyzing posts about new products, services, announcements, or technical developments.
@@ -27,25 +42,25 @@ The Reddit Digest now supports enhanced post summarization using OpenAI's Respon
 
 #### Core Settings
 ```bash
-WEB_SEARCH_ENABLED=false          # Enable/disable web search (default: false)
+WEB_SEARCH_ENABLED=true           # Enable/disable web search (default: true)
 WEB_SEARCH_TEST_MODE=false        # Enable verbose logging (default: false)
-WEB_SEARCH_DAILY_LIMIT=8          # Max searches per day (default: 8)
-WEB_SEARCH_COST_LIMIT=0.50        # Max daily cost in USD (default: $0.50)
+WEB_SEARCH_DAILY_LIMIT=15         # Max searches per day (default: 15)
+WEB_SEARCH_COST_LIMIT=1.50        # Max daily cost in USD (default: $1.50)
 WEB_SEARCH_COST_PER_CALL=0.03     # Cost per search call (default: $0.03)
 ```
 
 #### Targeting & Triggers
 ```bash
-WEB_SEARCH_MIN_SCORE=25                    # Minimum post score for web search
-WEB_SEARCH_SUBREDDITS=SideProject,ClaudeCode  # Target subreddits
-WEB_SEARCH_KEYWORDS=launched,released,new version,pricing,acquired,funding,announcement,beta,available now
-WEB_SEARCH_DOMAINS=github.com,producthunt.com,ycombinator.com,techcrunch.com
+WEB_SEARCH_MIN_SCORE=15                    # Minimum post score for web search
+WEB_SEARCH_SUBREDDITS=SideProject,ClaudeCode,ClaudeAI,AI_Agents  # Target subreddits
+WEB_SEARCH_KEYWORDS=launched,released,new version,pricing,acquired,funding,announcement,beta,available now,update,feature
+WEB_SEARCH_DOMAINS=github.com,producthunt.com,ycombinator.com,techcrunch.com,apps.apple.com,play.google.com
 ```
 
 #### Circuit Breaker
 ```bash
-WEB_SEARCH_FAILURE_THRESHOLD=3     # Failures before opening circuit breaker
-WEB_SEARCH_RECOVERY_TIMEOUT=3600   # Recovery timeout in seconds (1 hour)
+WEB_SEARCH_FAILURE_THRESHOLD=5     # Failures before opening circuit breaker
+WEB_SEARCH_RECOVERY_TIMEOUT=1800   # Recovery timeout in seconds (30 minutes)
 ```
 
 ### Scoring System
@@ -166,7 +181,7 @@ Monitor these metrics to assess ROI:
 
 #### Web Search Not Triggering
 1. Check `WEB_SEARCH_ENABLED=true`
-2. Verify posts meet scoring threshold (≥40 points)
+2. Verify posts meet scoring threshold (≥30 points)
 3. Ensure not hitting daily limits
 4. Check circuit breaker state
 

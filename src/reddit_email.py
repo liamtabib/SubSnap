@@ -766,9 +766,6 @@ def summarize_post_content_with_web_search(post_data, subreddit_name):
             {"role": "user", "content": content_array}
         ]
         
-        # Track the search attempt
-        web_search_manager.cost_tracker.record_search(post_data['title'], success=False)  # Will update on success
-        
         # API call with web search tool using Responses API
         response = openai_client.responses.create(
             model="gpt-4o",
@@ -784,11 +781,35 @@ def summarize_post_content_with_web_search(post_data, subreddit_name):
         # Extract summary and usage
         summary = response.choices[0].message.content.strip()
         
-        # Check if web search was actually used
-        web_search_used = any(
-            hasattr(choice.message, 'tool_calls') and choice.message.tool_calls 
-            for choice in response.choices
-        ) if hasattr(response, 'choices') else False
+        # Check if web search was actually used (Responses API format)
+        web_search_used = False
+        
+        # Check multiple possible locations for tool call information
+        if hasattr(response, 'choices') and response.choices:
+            # Standard Chat Completions format
+            for choice in response.choices:
+                if hasattr(choice.message, 'tool_calls') and choice.message.tool_calls:
+                    for tool_call in choice.message.tool_calls:
+                        if hasattr(tool_call, 'type') and 'web_search' in str(tool_call.type):
+                            web_search_used = True
+                            break
+        
+        # Check for Responses API specific format (tool execution results)
+        if hasattr(response, 'output') and hasattr(response.output, 'tool_calls'):
+            for tool_call in response.output.tool_calls:
+                if tool_call.type == 'web_search_call':
+                    web_search_used = True
+                    break
+        
+        # Alternative check: look for web search annotations or citations
+        if not web_search_used and hasattr(response, 'choices') and response.choices:
+            content = response.choices[0].message.content
+            # Check for common web search indicators in the response
+            if any(indicator in content.lower() for indicator in [
+                'according to recent', 'current information', 'latest data', 
+                'recent updates', 'as of 2025', 'current pricing'
+            ]):
+                web_search_used = True
         
         usage = {
             "prompt_tokens": response.usage.prompt_tokens,

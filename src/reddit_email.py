@@ -888,7 +888,7 @@ def main():
         print(f"Starting Reddit digest at {datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         
         # Fetch reddit posts from all subreddits
-        subreddits = ['windsurf', 'vibecoding', 'Anthropic', 'AI_Agents', 'Linear', 'ClaudeCode', 'ClaudeAI']
+        subreddits = ['SideProject', 'vibecoding', 'Anthropic', 'AI_Agents', 'Linear', 'ClaudeCode', 'ClaudeAI']
         all_subreddit_posts = fetch_reddit_posts(subreddits)
         
         # Debug output for subreddit posts

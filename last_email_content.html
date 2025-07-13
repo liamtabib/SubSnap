@@ -1,0 +1,530 @@
+
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            :root {
+                --primary-color: #FF4500;      /* Reddit orange */
+                --secondary-color: #0079D3;     /* Reddit blue */
+                --text-color: #1A1A1B;          /* Near black for text */
+                --light-text: #7C7C7C;          /* Lighter text for meta info */
+                --background: #F8F9FA;          /* Light background */
+                --card-background: #FFFFFF;     /* Card background */
+                --divider: #EDEFF1;              /* Divider color */
+                --highlight: #f0f7ff;            /* Light highlight color */
+                --shadow: rgba(0, 0, 0, 0.1);    /* Shadow color */
+                --radius: 10px;                  /* Border radius */
+            }
+            
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; 
+                margin: 0; 
+                padding: 12px; 
+                line-height: 1.4; 
+                background-color: var(--background);
+                color: var(--text-color);
+            }
+            
+            h1 { 
+                color: var(--primary-color); 
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 5px;
+                margin-top: 0;
+            }
+            
+            h2 { 
+                color: var(--secondary-color); 
+                font-size: 20px;
+                font-weight: 500;
+                padding: 8px 15px;
+                margin: 20px 0 12px 0; 
+                border-radius: var(--radius);
+                background: linear-gradient(90deg, var(--secondary-color), #2A95E9);
+                color: white;
+                box-shadow: 0 1px 5px var(--shadow);
+            }
+            
+            h3 { 
+                color: var(--secondary-color); 
+                font-size: 16px;
+                font-weight: 500;
+                margin: 10px 0 3px 0;
+            }
+
+            a { 
+                color: var(--secondary-color); 
+                text-decoration: none; 
+            }
+
+            a:hover { 
+                text-decoration: underline; 
+            }
+
+            p { 
+                margin: 6px 0; 
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .header {
+                text-align: center;
+                padding: 12px 0;
+                border-bottom: 1px solid var(--divider);
+                margin-bottom: 12px;
+            }
+
+            .date {
+                color: var(--light-text);
+                font-size: 14px;
+                margin-bottom: 10px;
+            }
+
+            .token-usage { 
+                background-color: var(--highlight); 
+                padding: 10px;
+                border-radius: var(--radius);
+                margin-bottom: 15px; 
+                box-shadow: 0 1px 3px var(--shadow);
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-around;
+                align-items: center;
+            }
+
+            .token-usage h3 {
+                width: 100%;
+                text-align: center;
+                margin: 0 0 8px 0;
+                font-size: 15px;
+            }
+
+            .token-item {
+                display: inline-block;
+                padding: 5px 10px;
+                border-radius: 15px;
+                background: white;
+                margin: 3px;
+                font-size: 13px;
+                box-shadow: 0 1px 2px var(--shadow);
+            }
+
+            .post { 
+                margin-bottom: 18px; 
+                padding: 12px;
+                background-color: var(--card-background);
+                border-radius: var(--radius);
+                box-shadow: 0 1px 6px var(--shadow);
+            }
+
+            .post-title { 
+                font-size: 18px; 
+                font-weight: bold; 
+                color: var(--text-color); 
+                line-height: 1.3;
+                margin-bottom: 3px;
+            }
+
+            .post-title a {
+                color: inherit;
+            }
+
+            .post-meta { 
+                color: var(--light-text); 
+                font-size: 13px; 
+                margin: 5px 0;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .meta-item {
+                margin-right: 10px;
+                display: flex;
+                align-items: center;
+            }
+
+            .upvotes {
+                color: var(--primary-color);
+                font-weight: 600;
+                background-color: rgba(255, 69, 0, 0.1);
+                padding: 2px 8px;
+                border-radius: 12px;
+                margin-right: 8px;
+                font-size: 13px;
+            }
+
+            .comments-count {
+                color: var(--secondary-color);
+                background-color: rgba(0, 121, 211, 0.1);
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 13px;
+            }
+
+            .summary { 
+                background-color: #FFFFFF; 
+                padding: 10px;
+                border-radius: var(--radius); 
+                margin: 10px 0;
+                box-shadow: 0 1px 2px var(--shadow);
+                border-left: 3px solid var(--primary-color);
+            }
+
+            .comments-summary { 
+                border-left: 3px solid var(--secondary-color); 
+                padding: 10px;
+                margin: 10px 0; 
+                background-color: #FFFFFF;
+                border-radius: var(--radius);
+                box-shadow: 0 1px 2px var(--shadow);
+            }
+
+            .comment { 
+                margin: 10px 0; 
+                padding: 8px 10px;
+                border-bottom: 1px solid var(--divider);
+                background-color: #FFFFFF;
+                border-radius: var(--radius);
+            }
+
+            .comment-meta { 
+                color: var(--light-text); 
+                font-size: 14px; 
+                display: flex;
+                align-items: center;
+                margin-bottom: 5px;
+            }
+
+            .no-posts { 
+                color: var(--light-text); 
+                font-style: italic; 
+                text-align: center;
+                padding: 30px;
+            }
+
+            .indicator {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-right: 8px;
+            }
+
+            .post-indicator {
+                background-color: var(--primary-color);
+            }
+
+            .comment-indicator {
+                background-color: var(--secondary-color);
+            }
+
+            @media only screen and (max-width: 600px) {
+                body { 
+                    padding: 10px; 
+                }
+
+                .post { 
+                    padding: 15px; 
+                }
+
+                h1 {
+                    font-size: 24px;
+                }
+
+                h2 {
+                    font-size: 20px;
+                    padding: 10px 15px;
+                }
+
+            }
+        </style>
+
+    </head>
+
+    <body>
+
+        <div class="container">
+
+            <div class="header">
+
+                <h1>Reddit Digest: r/AI_Agents, r/ClaudeAI, r/ClaudeCode, r/SideProject, r/vibecoding</h1>
+
+                <div class="date">Sunday, July 13, 2025</div>
+
+            </div>
+
+            <div class="token-usage">
+
+                <h3>OpenAI API Usage</h3>
+
+                <div class="token-item">📤 Prompt: 11037</div>
+
+                <div class="token-item">📥 Completion: 1735</div>
+
+                <div class="token-item">📊 Total: 12772</div>
+
+                <div class="token-item">🖼️ Images: 0</div>
+
+                <div class="token-item">💰 Est. Cost: $0.0424</div>
+
+            </div>
+    <h2>Top Posts (Sorted by Upvotes)</h2>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">217</span>
+                    <a href="https://www.reddit.com/r/ClaudeAI/comments/1lyrjnc/i_fed_gemini_a_lot_of_posts_from_this_reddit_and/" target="_blank">I fed Gemini a lot of posts from this reddit and let it summarize the best practice</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/ClaudeAI</div>
+                    <div class="meta-item">Posted by u/vincentr777</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The Reddit post discusses best practices for using Claude Code, Anthropic's CLI tool for AI coding assistance. It emphasizes treating Claude as a "brilliant, amnesiac expert" that requires an external memory setup to function effectively. The guide suggests setting up a workspace with essential files like CLAUDE.md, which contains core rules, and a memory-bank folder to track project details and progress. It also recommends installing an MCP server to enhance Claude's capabilities by allowing it to interact with the local machine. The guide stresses the importance of planning, using a PLAN.md file to outline a checklist-driven approach for project execution.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user suggested starting with the UI using Claude and then adding backend logic, though they questioned this approach, saying backend-first is usually better. Another person argued against needing perfect code from the start, saying fixing clear flaws through conversation is usually enough and aiming for a 70% solution can work. Someone else talked about using Claude's ability to remember customization through artifacts, likening it to a "memory keeper" that helps maintain consistency.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">204</span>
+                    <a href="https://www.reddit.com/r/SideProject/comments/1lyu4vr/my_girlfriend_made_this_app_to_take_my_stress_away/" target="_blank">My girlfriend made this app to take my stress away.</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/SideProject</div>
+                    <div class="meta-item">Posted by u/No_Profession_1230</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post shares a sweet story about an app created by the poster's girlfriend. She cloned her voice using ElevenLabs and developed a real-time app. This allows the poster to talk to her even when she's not physically around or is busy. The app is now available for everyone to use.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One person joked that the timer feature actually adds stress instead of relieving it. Another suggested the app might have uses beyond just stress relief. Someone else playfully speculated that the app itself might be the creator's girlfriend.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">196</span>
+                    <a href="https://www.reddit.com/r/ClaudeAI/comments/1lygi1c/is_claude_gassing_me_up/" target="_blank">Is Claude gassing me up???</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/ClaudeAI</div>
+                    <div class="meta-item">Posted by u/Far-Chocolate-8740</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post is asking for advice on how to get more realistic and constructive feedback from Claude, as the current feedback feels overly positive or "glazing." The user is looking for ways to make the AI's responses more balanced and useful.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user totally agrees with the post, saying, "You're absolutely right!" Another person claims they found the issue, while someone else suggests reading the post again but with a sarcastic tone.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">188</span>
+                    <a href="https://www.reddit.com/r/SideProject/comments/1lyeb66/i_built_an_ai_app_that_declutters_room_photos/" target="_blank">I built an AI app that declutters room photos, useful for real estate, staging, and more</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/SideProject</div>
+                    <div class="meta-item">Posted by u/Jumpy_Difference_839</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>A developer shared their side project, an AI app called RoomClean, which transforms messy room photos into tidy, decluttered images. This tool is particularly useful for real estate listings, staging, design mood boards, or simply visualizing a neater space. The app aims to enhance the appeal of photos by presenting cleaner versions.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user asked about the tech stack used for the AI app. Another simply expressed their liking for the project. Someone else pointed out how the app could be a great tool for the real estate market and other sectors like retail, helping visualize spaces.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">155</span>
+                    <a href="https://www.reddit.com/r/ClaudeAI/comments/1lyd2tc/github_actions_now_work_with_max_plan/" target="_blank">GitHub Actions now work with Max plan</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/ClaudeAI</div>
+                    <div class="meta-item">Posted by u/darkyy92x</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post mentions that GitHub Actions are now compatible with the Max plan. Previously, users could only use the API, which often resulted in high costs. This update likely makes automation and continuous integration more affordable and accessible for users on the Max plan.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user joked about never getting a weekend off due to always having something to test, mentioning they're working on a blog post about `--append-system-prompt`. Another person simply expressed amazement with "Holyyyyyy," and someone else commented "wow awesome, thanks!" indicating excitement and appreciation.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">138</span>
+                    <a href="https://www.reddit.com/r/SideProject/comments/1lygs32/i_kept_losing_time_to_reels_and_shorts_so_i_built/" target="_blank">I kept losing time to reels and shorts, so I built this</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/SideProject</div>
+                    <div class="meta-item">Posted by u/VisualJello1284</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The poster created an app called MindfulScroll to help people be more aware of the time they spend watching short videos like reels and shorts. They noticed how much time friends and family spend on these platforms and wanted to encourage people to experience more of life beyond screens. The app is available on Google Play, but not on iOS due to technical and financial constraints.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user said they just uninstalled the app but ended up wasting time on Reddit instead, so they think this tool could help. Another person exclaimed it's fantastic and that they need it. Someone else mentioned they love the idea, especially since they use shorts and reels to manage anxiety, and they're eager to try it out.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">27</span>
+                    <a href="https://www.reddit.com/r/AI_Agents/comments/1lyjl3p/built_a_legal_ai_using_mistralai/" target="_blank">Built a Legal AI using MistralAI</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/AI_Agents</div>
+                    <div class="meta-item">Posted by u/kingavneet</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post is about someone who developed a legal AI chatbot using MistralAI, specifically fine-tuned for California criminal defense law. The creator aimed to provide lawyers, especially defense attorneys, with a digital co-counsel knowledgeable about jury instructions, DUI defenses, and more. They chose MistralAI for its speed and flexibility, making it suitable for niche areas like law. The AI can spot issues in police reports and suggest creative defenses, which the creator finds exciting. They're not selling anything but are open to feedback to improve the project. They mention their website, bearister.ai, and offer a free demo code for those interested.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user asked about how the legal AI handles hallucinations and if there are any evaluations done. Another person was curious about the preparation and format of the training datasets used to build the AI.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">24</span>
+                    <a href="https://www.reddit.com/r/vibecoding/comments/1lyp6fh/just_one_more_vibe_coding_tool_bro/" target="_blank">just one more vibe coding tool bro</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/vibecoding</div>
+                    <div class="meta-item">Posted by u/Temporary-Bug-7164</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post humorously suggests that developers often keep adding new vibe coding tools to their workflow, as if they can't resist trying just one more. It's a light-hearted take on how enticing it is to experiment with the latest AI-driven coding tools and techniques.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user is curious about why someone would need more than one or two vibe coding tools, asking specifically what problems can't be solved with just Cursor. Another person sarcastically comments on the cost of adding another tool, implying it's just another $20 a month. Someone else shares a negative experience with Firebase, saying it was their worst.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">20</span>
+                    <a href="https://www.reddit.com/r/vibecoding/comments/1lym7x2/opensource_passwords/" target="_blank">Opensource Passwords</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/vibecoding</div>
+                    <div class="meta-item">Posted by u/Dentuam</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>It seems like the post titled "Opensource Passwords" doesn't have any content provided. Without additional information or context, it's hard to determine what the post is about. It could potentially involve discussions around open-source tools for password management, security practices, or something else entirely related to passwords in the open-source community.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user joked about getting rickrolled when logging in, while another summed it up as "vibecoding in a nutshell." A third person just dropped a smiley face.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">14</span>
+                    <a href="https://www.reddit.com/r/AI_Agents/comments/1lyn83i/searching_for_an_ai_agent_to_autosubmit_my/" target="_blank">Searching for an AI Agent to Auto-Submit My Startup to Directories</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/AI_Agents</div>
+                    <div class="meta-item">Posted by u/Ok-Entertainment5614</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post is from someone looking for an AI agent to automate the task of submitting their startup to various SaaS and AI directories. The process is repetitive and involves filling out slightly different forms on each site. They've tried using tools like Zapier and semi-automation, but haven't found a smooth solution. They are seeking a narrow AI agent that can be configured once to loop through directories, fill out forms, handle errors, and log submissions. The poster is asking if such a tool exists or if anyone has developed something similar.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user, who runs getmorebacklinks.org, mentioned they have a semi-automated system to help AI startups get featured on over 500 reputable platforms, which can boost visitors, SEO scores, and Google rankings. Another person expressed interest in finding a good tool or agent for directory submissions, saying they've been procrastinating on it. An automated message from AutoModerator provided a link to the subreddit wiki for more information on AI.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">12</span>
+                    <a href="https://www.reddit.com/r/ClaudeCode/comments/1lym7ad/maintaining_claudemd/" target="_blank">Maintaining Claude.md</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/ClaudeCode</div>
+                    <div class="meta-item">Posted by u/liftingg</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>The post discusses the maintenance of the `Claude.md` file, which is essential for the efficient functioning of Claude Code. The author is curious about how others manage updates to this file as their projects grow in complexity. They note that Claude doesn't automatically update `Claude.md` after the initial `/init` run. The author wonders if others manually update the file or periodically ask Claude to update it, suggesting that rerunning `/init` might be more effective than leaving it unchanged.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user suggested setting up hooks for automatic updates to MD files before ending a session and using a custom slash command for "MD Update." Another person recommended adding an "important reminder" in Claude.md to update files after significant changes, which has worked well for them. Another user shared they use a custom "/refine" command to refine CLAUDE.md and adjust the refinement process based on accepted or rejected edits, though manual edits and experimentation are sometimes necessary.</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">11</span>
+                    <a href="https://www.reddit.com/r/vibecoding/comments/1lyt3tw/built_my_first_app_using_rork_ai_with_zero_coding/" target="_blank">Built my first app using Rork AI with zero coding experience</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/vibecoding</div>
+                    <div class="meta-item">Posted by u/GurComprehensive9936</div>
+                    <div class="meta-item comments-count">3 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>A Reddit user shared their experience of building their first app, a budget planner called Trilo, using Rork AI and ChatGPT without any prior coding knowledge. They found Rork AI intuitive for visualizing app ideas but encountered challenges that required them to manually edit code with ChatGPT's help. Despite some hiccups, like issues with onboarding and authentication, they rated Rork a 7 out of 10 for its visual capabilities but noted the need for precise prompts. Through this project, they learned about tools like GitHub and ExpoGo and used the Mac Terminal for the first time. Trilo is currently under review on TestFlight, and they're eager to continue improving it. They offered to share more about their process with anyone interested.</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>One user congratulated the poster on their app but wondered why it's a popular choice for beginners. Another user asked about backend hosting and what coding language was used, sharing that they're working on a TTRPG app using Claude. Someone else joked about the similar-sounding names of Rork, Grok, and Groq.</p>
+                </div>
+                </div>
+    </body>
+    </html>
+    

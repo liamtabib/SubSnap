@@ -1,0 +1,13 @@
+{
+  "date": "2025-07-13",
+  "searches_count": 1,
+  "total_cost": 0.03,
+  "searches": [
+    {
+      "timestamp": "2025-07-13T21:04:36.270044",
+      "post_title": "Test post title",
+      "cost": 0.03,
+      "success": true
+    }
+  ]
+}

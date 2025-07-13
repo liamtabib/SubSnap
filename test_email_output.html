@@ -1,0 +1,364 @@
+
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            :root {
+                --primary-color: #FF4500;      /* Reddit orange */
+                --secondary-color: #0079D3;     /* Reddit blue */
+                --text-color: #1A1A1B;          /* Near black for text */
+                --light-text: #7C7C7C;          /* Lighter text for meta info */
+                --background: #F8F9FA;          /* Light background */
+                --card-background: #FFFFFF;     /* Card background */
+                --divider: #EDEFF1;              /* Divider color */
+                --highlight: #f0f7ff;            /* Light highlight color */
+                --shadow: rgba(0, 0, 0, 0.1);    /* Shadow color */
+                --radius: 10px;                  /* Border radius */
+            }
+            
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; 
+                margin: 0; 
+                padding: 12px; 
+                line-height: 1.4; 
+                background-color: var(--background);
+                color: var(--text-color);
+            }
+            
+            h1 { 
+                color: var(--primary-color); 
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 5px;
+                margin-top: 0;
+            }
+            
+            h2 { 
+                color: var(--secondary-color); 
+                font-size: 20px;
+                font-weight: 500;
+                padding: 8px 15px;
+                margin: 20px 0 12px 0; 
+                border-radius: var(--radius);
+                background: linear-gradient(90deg, var(--secondary-color), #2A95E9);
+                color: white;
+                box-shadow: 0 1px 5px var(--shadow);
+            }
+            
+            h3 { 
+                color: var(--secondary-color); 
+                font-size: 16px;
+                font-weight: 500;
+                margin: 10px 0 3px 0;
+            }
+
+            a { 
+                color: var(--secondary-color); 
+                text-decoration: none; 
+            }
+
+            a:hover { 
+                text-decoration: underline; 
+            }
+
+            p { 
+                margin: 6px 0; 
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .header {
+                text-align: center;
+                padding: 12px 0;
+                border-bottom: 1px solid var(--divider);
+                margin-bottom: 12px;
+            }
+
+            .date {
+                color: var(--light-text);
+                font-size: 14px;
+                margin-bottom: 10px;
+            }
+
+            .token-usage { 
+                background-color: var(--highlight); 
+                padding: 10px;
+                border-radius: var(--radius);
+                margin-bottom: 15px; 
+                box-shadow: 0 1px 3px var(--shadow);
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-around;
+                align-items: center;
+            }
+
+            .token-usage h3 {
+                width: 100%;
+                text-align: center;
+                margin: 0 0 8px 0;
+                font-size: 15px;
+            }
+
+            .token-item {
+                display: inline-block;
+                padding: 5px 10px;
+                border-radius: 15px;
+                background: white;
+                margin: 3px;
+                font-size: 13px;
+                box-shadow: 0 1px 2px var(--shadow);
+            }
+
+            .post { 
+                margin-bottom: 18px; 
+                padding: 12px;
+                background-color: var(--card-background);
+                border-radius: var(--radius);
+                box-shadow: 0 1px 6px var(--shadow);
+            }
+
+            .post-title { 
+                font-size: 18px; 
+                font-weight: bold; 
+                color: var(--text-color); 
+                line-height: 1.3;
+                margin-bottom: 3px;
+            }
+
+            .post-title a {
+                color: inherit;
+            }
+
+            .post-meta { 
+                color: var(--light-text); 
+                font-size: 13px; 
+                margin: 5px 0;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .meta-item {
+                margin-right: 10px;
+                display: flex;
+                align-items: center;
+            }
+
+            .upvotes {
+                color: var(--primary-color);
+                font-weight: 600;
+                background-color: rgba(255, 69, 0, 0.1);
+                padding: 2px 8px;
+                border-radius: 12px;
+                margin-right: 8px;
+                font-size: 13px;
+            }
+
+            .comments-count {
+                color: var(--secondary-color);
+                background-color: rgba(0, 121, 211, 0.1);
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 13px;
+            }
+
+            .summary { 
+                background-color: #FFFFFF; 
+                padding: 10px;
+                border-radius: var(--radius); 
+                margin: 10px 0;
+                box-shadow: 0 1px 2px var(--shadow);
+                border-left: 3px solid var(--primary-color);
+            }
+
+            .comments-summary { 
+                border-left: 3px solid var(--secondary-color); 
+                padding: 10px;
+                margin: 10px 0; 
+                background-color: #FFFFFF;
+                border-radius: var(--radius);
+                box-shadow: 0 1px 2px var(--shadow);
+            }
+
+            .comment { 
+                margin: 10px 0; 
+                padding: 8px 10px;
+                border-bottom: 1px solid var(--divider);
+                background-color: #FFFFFF;
+                border-radius: var(--radius);
+            }
+
+            .comment-meta { 
+                color: var(--light-text); 
+                font-size: 14px; 
+                display: flex;
+                align-items: center;
+                margin-bottom: 5px;
+            }
+
+            .no-posts { 
+                color: var(--light-text); 
+                font-style: italic; 
+                text-align: center;
+                padding: 30px;
+            }
+
+            .indicator {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-right: 8px;
+            }
+
+            .post-indicator {
+                background-color: var(--primary-color);
+            }
+
+            .comment-indicator {
+                background-color: var(--secondary-color);
+            }
+
+            @media only screen and (max-width: 600px) {
+                body { 
+                    padding: 10px; 
+                }
+
+                .post { 
+                    padding: 15px; 
+                }
+
+                h1 {
+                    font-size: 24px;
+                }
+
+                h2 {
+                    font-size: 20px;
+                    padding: 10px 15px;
+                }
+
+            }
+        </style>
+
+    </head>
+
+    <body>
+
+        <div class="container">
+
+            <div class="header">
+
+                <h1>Reddit Digest: r/ClaudeCode, r/SideProject, r/programming</h1>
+
+                <div class="date">Sunday, July 13, 2025</div>
+
+            </div>
+
+            <div class="token-usage">
+
+                <h3>OpenAI API Usage</h3>
+
+                <div class="token-item">📤 Prompt: 800</div>
+
+                <div class="token-item">📥 Completion: 400</div>
+
+                <div class="token-item">📊 Total: 1200</div>
+
+                <div class="token-item">🖼️ Images: 0</div>
+
+                <div class="token-item">🌐 Web Searches: 2</div>
+
+                <div class="token-item">💰 Est. Cost: $0.1080</div>
+
+            </div>
+    <h2>Top Posts (Sorted by Upvotes)</h2>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">89</span>
+                    <a href="https://producthunt.com/posts/codeai-v2" target="_blank">Just launched CodeAI v2.0 with GPT-4 integration</a> <span class="web-search-badge" title="Enhanced with web search">🌐</span>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/SideProject</div>
+                    <div class="meta-item">Posted by u/developer123</div>
+                    <div class="meta-item comments-count">2 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>Mock summary for: Just launched CodeAI v2.0 with GPT-4 integration</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>Mock comment summary</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">234</span>
+                    <a href="https://techcrunch.com/2025/07/13/openai-pricing-update" target="_blank">OpenAI announces new pricing for GPT-4o</a> <span class="web-search-badge" title="Enhanced with web search">🌐</span>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/ClaudeCode</div>
+                    <div class="meta-item">Posted by u/tech_news</div>
+                    <div class="meta-item comments-count">2 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>Mock summary for: OpenAI announces new pricing for GPT-4o</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>Mock comment summary</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">45</span>
+                    <a href="https://github.com/user/task-manager" target="_blank">My weekend project: Simple task manager</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/SideProject</div>
+                    <div class="meta-item">Posted by u/weekend_coder</div>
+                    <div class="meta-item comments-count">1 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>Mock summary for: My weekend project: Simple task manager</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>Mock comment summary</p>
+                </div>
+                </div>
+            <div class="post">
+                <div class="post-title">
+                    <span class="upvotes">67</span>
+                    <a href="https://reddit.com/r/programming/comments/xyz" target="_blank">How to get better at debugging</a>
+                </div>
+                <div class="post-meta">
+                    <div class="meta-item">r/programming</div>
+                    <div class="meta-item">Posted by u/senior_dev</div>
+                    <div class="meta-item comments-count">0 comments</div>
+                </div>
+            
+                <div class="summary">
+                    <h3><span class="indicator post-indicator"></span>Post Summary</h3>
+                    <p>Mock summary for: How to get better at debugging</p>
+                </div>
+                
+                <div class="comments-summary">
+                    <h3><span class="indicator comment-indicator"></span>Comments Summary</h3>
+                    <p>Mock comment summary</p>
+                </div>
+                </div>
+    </body>
+    </html>
+    

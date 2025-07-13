@@ -1,0 +1,71 @@
+REDDIT DIGEST: r/ClaudeCode, r/SideProject, r/programming
+Top posts from Sunday, July 13, 2025
+
+OPENAI API USAGE:
+Prompt tokens: 800
+Completion tokens: 400
+Total tokens: 1200
+Images processed: 0
+Web searches: 2
+Estimated cost: $0.1080
+==================================================
+
+TOP POSTS ACROSS ALL SUBREDDITS (SORTED BY UPVOTES)
+--------------------------------------------------
+
+1. Just launched CodeAI v2.0 with GPT-4 integration
+   r/SideProject | Posted by u/developer123 | 89 points | 2 comments
+   https://producthunt.com/posts/codeai-v2
+
+POST SUMMARY:
+---------------
+Mock summary for: Just launched CodeAI v2.0 with GPT-4 integration
+
+COMMENTS SUMMARY:
+---------------
+Mock comment summary
+
+==================================================
+
+2. OpenAI announces new pricing for GPT-4o
+   r/ClaudeCode | Posted by u/tech_news | 234 points | 2 comments
+   https://techcrunch.com/2025/07/13/openai-pricing-update
+
+POST SUMMARY:
+---------------
+Mock summary for: OpenAI announces new pricing for GPT-4o
+
+COMMENTS SUMMARY:
+---------------
+Mock comment summary
+
+==================================================
+
+3. My weekend project: Simple task manager
+   r/SideProject | Posted by u/weekend_coder | 45 points | 1 comments
+   https://github.com/user/task-manager
+
+POST SUMMARY:
+---------------
+Mock summary for: My weekend project: Simple task manager
+
+COMMENTS SUMMARY:
+---------------
+Mock comment summary
+
+==================================================
+
+4. How to get better at debugging
+   r/programming | Posted by u/senior_dev | 67 points | 0 comments
+   https://reddit.com/r/programming/comments/xyz
+
+POST SUMMARY:
+---------------
+Mock summary for: How to get better at debugging
+
+COMMENTS SUMMARY:
+---------------
+Mock comment summary
+
+==================================================
+

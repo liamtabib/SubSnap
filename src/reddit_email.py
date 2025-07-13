@@ -19,6 +19,9 @@ import openai
 from typing import List, Dict, Any
 import re
 import requests
+import json
+import traceback
+from urllib.parse import urlparse
 
 # Load environment variables
 load_dotenv()
@@ -51,6 +54,23 @@ IMAGE_ANALYSIS_CONFIG = {
 }
 
 print(f"Image analysis config: {IMAGE_ANALYSIS_CONFIG}")
+
+# Web search configuration
+WEB_SEARCH_CONFIG = {
+    'enabled': os.getenv('WEB_SEARCH_ENABLED', 'false').lower() == 'true',
+    'daily_limit': int(os.getenv('WEB_SEARCH_DAILY_LIMIT', '8')),
+    'cost_limit_per_day': float(os.getenv('WEB_SEARCH_COST_LIMIT', '0.50')),
+    'cost_per_search': float(os.getenv('WEB_SEARCH_COST_PER_CALL', '0.03')),
+    'min_post_score': int(os.getenv('WEB_SEARCH_MIN_SCORE', '25')),
+    'target_subreddits': [s.strip() for s in os.getenv('WEB_SEARCH_SUBREDDITS', 'SideProject,ClaudeCode').split(',') if s.strip()],
+    'trigger_keywords': [s.strip() for s in os.getenv('WEB_SEARCH_KEYWORDS', 'launched,released,new version,pricing,acquired,funding,announcement,beta,available now').split(',') if s.strip()],
+    'external_domains': [s.strip() for s in os.getenv('WEB_SEARCH_DOMAINS', 'github.com,producthunt.com,ycombinator.com,techcrunch.com').split(',') if s.strip()],
+    'test_mode': os.getenv('WEB_SEARCH_TEST_MODE', 'false').lower() == 'true',
+    'circuit_breaker_threshold': int(os.getenv('WEB_SEARCH_FAILURE_THRESHOLD', '3')),
+    'circuit_breaker_timeout': int(os.getenv('WEB_SEARCH_RECOVERY_TIMEOUT', '3600'))  # 1 hour
+}
+
+print(f"Web search config: {WEB_SEARCH_CONFIG}")
 
 def connect_to_reddit():
     """Connect to Reddit API"""
@@ -200,6 +220,319 @@ def calculate_multimodal_cost(text_usage, image_count):
     
     return text_cost + image_cost
 
+# Web search triggering functions
+def extract_external_domains(url):
+    """Extract domains from URL that might indicate newsworthy content"""
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        # Remove www prefix
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        return [domain] if domain else []
+    except Exception:
+        return []
+
+def extract_product_mentions(text):
+    """Extract potential product/company names from text"""
+    # Common tech product patterns
+    patterns = [
+        r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:v\d|version|release|beta|alpha)\b',  # Version mentions
+        r'\b[A-Z][a-zA-Z]*(?:AI|API|SDK|CLI|IDE|OS)\b',  # Tech acronyms
+        r'\b(?:launched|released|announced)\s+([A-Z][a-zA-Z\s]+)',  # "launched ProductName"
+        r'\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+(?:just|now|today)\s+(?:launched|released)',  # "ProductName just launched"
+    ]
+    
+    mentions = []
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            # Handle both string matches and tuple matches from capture groups
+            for match in matches:
+                if isinstance(match, tuple):
+                    mentions.extend([m for m in match if m])  # Add non-empty captures
+                else:
+                    mentions.append(match)
+    
+    # Filter out common false positives
+    false_positives = {'the', 'and', 'for', 'with', 'this', 'that', 'have', 'been', 'will', 'would', 'could', 'should'}
+    return [mention.strip() for mention in mentions if mention.lower().strip() not in false_positives]
+
+def calculate_web_search_score(post_data, subreddit_name):
+    """Calculate a score to determine if post warrants web search"""
+    if not WEB_SEARCH_CONFIG['enabled']:
+        return 0
+    
+    score = 0
+    title = post_data.get('title', '').lower()
+    body = post_data.get('body', '').lower()
+    post_url = post_data.get('url', '')
+    post_score = post_data.get('score', 0)
+    
+    # Subreddit targeting (high value for tech subreddits)
+    if subreddit_name in WEB_SEARCH_CONFIG['target_subreddits']:
+        score += 20
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"  +20 for target subreddit: {subreddit_name}")
+    
+    # Keyword triggers (product launches, announcements, etc.)
+    title_body = title + ' ' + body
+    for keyword in WEB_SEARCH_CONFIG['trigger_keywords']:
+        if keyword.lower() in title_body:
+            score += 15
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"  +15 for keyword: {keyword}")
+            break  # Only count once per post
+    
+    # High engagement posts
+    if post_score >= WEB_SEARCH_CONFIG['min_post_score']:
+        score += 25
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"  +25 for high engagement: {post_score}")
+    
+    # External domain links (news sites, product pages)
+    domains = extract_external_domains(post_url)
+    for domain in domains:
+        if domain in WEB_SEARCH_CONFIG['external_domains']:
+            score += 20
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"  +20 for external domain: {domain}")
+        elif domain not in ['reddit.com', 'imgur.com', 'i.redd.it']:
+            score += 10
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"  +10 for other external domain: {domain}")
+    
+    # Product mentions in title/body
+    products = extract_product_mentions(title_body)
+    if products:
+        score += 15
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"  +15 for product mentions: {products}")
+    
+    # Minimal text content (often image/link posts about new things)
+    if len(body) < 100:
+        score += 5
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"  +5 for minimal text content")
+    
+    return score
+
+def should_use_web_search(post_data, subreddit_name):
+    """Determine if a post should use web search for enhanced context"""
+    if not WEB_SEARCH_CONFIG['enabled']:
+        return False
+    
+    score = calculate_web_search_score(post_data, subreddit_name)
+    threshold = 40  # Require multiple signals
+    
+    result = score >= threshold
+    
+    if WEB_SEARCH_CONFIG['test_mode']:
+        print(f"Web search decision for '{post_data['title'][:50]}...': score={score}, threshold={threshold}, result={result}")
+    
+    return result
+
+# Cost tracking and daily limit management
+class WebSearchCostTracker:
+    """Tracks daily web search usage and costs"""
+    
+    def __init__(self):
+        self.usage_file = "web_search_usage.json"
+        self.usage_data = self.load_usage_data()
+    
+    def load_usage_data(self):
+        """Load daily usage data from file"""
+        try:
+            if os.path.exists(self.usage_file):
+                with open(self.usage_file, 'r') as f:
+                    data = json.load(f)
+                    # Clean old data (keep only today's data)
+                    today = datetime.now().strftime('%Y-%m-%d')
+                    if data.get('date') == today:
+                        return data
+            
+            # Return fresh data for today
+            return {
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'searches_count': 0,
+                'total_cost': 0.0,
+                'searches': []
+            }
+        except Exception as e:
+            print(f"Error loading web search usage data: {e}")
+            return {
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'searches_count': 0,
+                'total_cost': 0.0,
+                'searches': []
+            }
+    
+    def save_usage_data(self):
+        """Save usage data to file"""
+        try:
+            with open(self.usage_file, 'w') as f:
+                json.dump(self.usage_data, f, indent=2)
+        except Exception as e:
+            print(f"Error saving web search usage data: {e}")
+    
+    def can_search(self):
+        """Check if we're within daily limits"""
+        if not WEB_SEARCH_CONFIG['enabled']:
+            return False
+        
+        # Check count limit
+        if self.usage_data['searches_count'] >= WEB_SEARCH_CONFIG['daily_limit']:
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"Daily search limit reached: {self.usage_data['searches_count']}/{WEB_SEARCH_CONFIG['daily_limit']}")
+            return False
+        
+        # Check cost limit
+        estimated_new_cost = self.usage_data['total_cost'] + WEB_SEARCH_CONFIG['cost_per_search']
+        if estimated_new_cost > WEB_SEARCH_CONFIG['cost_limit_per_day']:
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"Daily cost limit would be exceeded: ${estimated_new_cost:.4f} > ${WEB_SEARCH_CONFIG['cost_limit_per_day']:.4f}")
+            return False
+        
+        return True
+    
+    def record_search(self, post_title, actual_cost=None, success=True):
+        """Record a web search usage"""
+        cost = actual_cost if actual_cost is not None else WEB_SEARCH_CONFIG['cost_per_search']
+        
+        search_record = {
+            'timestamp': datetime.now().isoformat(),
+            'post_title': post_title[:50] + '...' if len(post_title) > 50 else post_title,
+            'cost': cost,
+            'success': success
+        }
+        
+        self.usage_data['searches_count'] += 1
+        self.usage_data['total_cost'] += cost
+        self.usage_data['searches'].append(search_record)
+        
+        self.save_usage_data()
+        
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"Recorded web search: {search_record}")
+    
+    def get_daily_summary(self):
+        """Get summary of today's web search usage"""
+        return {
+            'date': self.usage_data['date'],
+            'searches_count': self.usage_data['searches_count'],
+            'total_cost': self.usage_data['total_cost'],
+            'remaining_searches': max(0, WEB_SEARCH_CONFIG['daily_limit'] - self.usage_data['searches_count']),
+            'remaining_budget': max(0, WEB_SEARCH_CONFIG['cost_limit_per_day'] - self.usage_data['total_cost'])
+        }
+
+# Circuit breaker for web search reliability
+class WebSearchCircuitBreaker:
+    """Implements circuit breaker pattern for web search reliability"""
+    
+    def __init__(self):
+        self.state_file = "web_search_circuit_state.json"
+        self.state = self.load_state()
+    
+    def load_state(self):
+        """Load circuit breaker state"""
+        try:
+            if os.path.exists(self.state_file):
+                with open(self.state_file, 'r') as f:
+                    state = json.load(f)
+                    # Check if recovery timeout has passed
+                    if state.get('state') == 'open':
+                        last_failure = datetime.fromisoformat(state.get('last_failure', '2000-01-01'))
+                        timeout_seconds = WEB_SEARCH_CONFIG['circuit_breaker_timeout']
+                        if (datetime.now() - last_failure).total_seconds() > timeout_seconds:
+                            state['state'] = 'half_open'
+                            state['failure_count'] = 0
+                    return state
+            
+            return {
+                'state': 'closed',  # closed, open, half_open
+                'failure_count': 0,
+                'last_failure': None
+            }
+        except Exception as e:
+            print(f"Error loading circuit breaker state: {e}")
+            return {'state': 'closed', 'failure_count': 0, 'last_failure': None}
+    
+    def save_state(self):
+        """Save circuit breaker state"""
+        try:
+            with open(self.state_file, 'w') as f:
+                json.dump(self.state, f, indent=2)
+        except Exception as e:
+            print(f"Error saving circuit breaker state: {e}")
+    
+    def can_call(self):
+        """Check if web search calls are allowed"""
+        return self.state['state'] in ['closed', 'half_open']
+    
+    def record_success(self):
+        """Record successful web search call"""
+        self.state['state'] = 'closed'
+        self.state['failure_count'] = 0
+        self.state['last_failure'] = None
+        self.save_state()
+    
+    def record_failure(self):
+        """Record failed web search call"""
+        self.state['failure_count'] += 1
+        self.state['last_failure'] = datetime.now().isoformat()
+        
+        threshold = WEB_SEARCH_CONFIG['circuit_breaker_threshold']
+        if self.state['failure_count'] >= threshold:
+            self.state['state'] = 'open'
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"Circuit breaker opened after {self.state['failure_count']} failures")
+        
+        self.save_state()
+
+# Main web search manager
+class WebSearchManager:
+    """Main manager for web search functionality with safety mechanisms"""
+    
+    def __init__(self):
+        self.cost_tracker = WebSearchCostTracker()
+        self.circuit_breaker = WebSearchCircuitBreaker()
+    
+    def can_perform_search(self, post_data, subreddit_name):
+        """Check if we can perform a web search for this post"""
+        # Check configuration
+        if not WEB_SEARCH_CONFIG['enabled']:
+            return False, "Web search disabled in configuration"
+        
+        # Check if post warrants web search
+        if not should_use_web_search(post_data, subreddit_name):
+            return False, "Post doesn't meet web search criteria"
+        
+        # Check daily limits
+        if not self.cost_tracker.can_search():
+            return False, "Daily search limits exceeded"
+        
+        # Check circuit breaker
+        if not self.circuit_breaker.can_call():
+            return False, "Circuit breaker is open due to previous failures"
+        
+        return True, "All checks passed"
+    
+    def get_status_summary(self):
+        """Get current status of web search system"""
+        cost_summary = self.cost_tracker.get_daily_summary()
+        circuit_state = self.circuit_breaker.state['state']
+        
+        return {
+            'enabled': WEB_SEARCH_CONFIG['enabled'],
+            'daily_usage': cost_summary,
+            'circuit_breaker_state': circuit_state,
+            'last_failure': self.circuit_breaker.state.get('last_failure'),
+            'failure_count': self.circuit_breaker.state.get('failure_count', 0)
+        }
+
+# Global web search manager instance
+web_search_manager = WebSearchManager()
+
 def fetch_reddit_posts(subreddit_names=['windsurf', 'vibecoding'], limit=10, comment_limit=3):
     """Fetch today's posts from multiple subreddits and their comments
     
@@ -325,6 +658,175 @@ DO NOT use emojis. DO NOT address the reader directly. Give a concise, brief sum
 """
     
     return base_prompt
+
+def create_web_search_system_prompt(subreddit_name, has_images):
+    """Create system prompt for web search enabled summarization"""
+    base_prompt = create_multimodal_system_prompt(subreddit_name, has_images)
+    
+    # Add web search specific instructions
+    web_search_instructions = """
+
+WEB SEARCH CAPABILITIES:
+You have access to web search to find current information. Use it when:
+- The post mentions specific products, services, or companies that might have recent updates
+- There are claims about pricing, availability, or features that should be verified
+- New announcements, launches, or releases are discussed
+- You need current context to provide accurate information
+
+When using web search results in your summary:
+- Briefly mention current information found (e.g., "Current pricing shows..." or "Recent updates indicate...")
+- Only include information that adds valuable context to the post
+- Keep web-sourced information concise and relevant
+"""
+    
+    return base_prompt + web_search_instructions
+
+def create_search_guidance_context(post_data):
+    """Generate specific search guidance for the model"""
+    title = post_data.get('title', '')
+    body = post_data.get('body', '')
+    
+    # Extract entities that might need current information
+    products = extract_product_mentions(title + ' ' + body)
+    domains = extract_external_domains(post_data.get('url', ''))
+    
+    guidance_parts = []
+    
+    if products:
+        guidance_parts.append(f"Consider searching for current information about: {', '.join(products[:3])}")
+    
+    # Check for time-sensitive keywords
+    time_keywords = ['new', 'latest', 'just', 'recently', 'announced', 'launched', 'released', 'updated']
+    if any(keyword in title.lower() + body.lower() for keyword in time_keywords):
+        guidance_parts.append("This post mentions recent developments - verify current status")
+    
+    if domains:
+        guidance_parts.append(f"External links detected - may warrant verification")
+    
+    return '. '.join(guidance_parts) + '.' if guidance_parts else ''
+
+def summarize_post_content_with_web_search(post_data, subreddit_name):
+    """Enhanced post summarization using OpenAI Responses API with web search"""
+    print(f"Attempting web search summarization: {post_data['title'][:30]}...")
+    
+    if not openai_client:
+        print("OpenAI API key not available. Skipping post summarization.")
+        return None
+    
+    # Check if we can and should perform web search
+    can_search, reason = web_search_manager.can_perform_search(post_data, subreddit_name)
+    if not can_search:
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"Cannot perform web search: {reason}")
+        return None
+    
+    # Check if we have images to process
+    image_urls = post_data.get('image_urls', [])
+    has_images = len(image_urls) > 0
+    
+    # Validate images if we have them
+    valid_images = []
+    if has_images:
+        valid_images = validate_image_urls(image_urls)
+        has_images = len(valid_images) > 0
+    
+    try:
+        # Prepare content for API call
+        content_array = []
+        
+        # Add text content
+        title = post_data['title']
+        body = truncate_to_tokens(post_data['body'], 700)
+        search_guidance = create_search_guidance_context(post_data)
+        
+        text_content = f"Title: {title}\n\nContent: {body}"
+        if search_guidance:
+            text_content += f"\n\nSearch guidance: {search_guidance}"
+        
+        content_array.append({"type": "text", "text": text_content})
+        
+        # Add images if we have them
+        if has_images:
+            max_images = min(len(valid_images), IMAGE_ANALYSIS_CONFIG['max_images_per_post'])
+            for img_url in valid_images[:max_images]:
+                content_array.append({
+                    "type": "image_url",
+                    "image_url": {"url": img_url, "detail": "low"}
+                })
+        
+        # Create system message
+        system_message = {
+            "role": "system",
+            "content": create_web_search_system_prompt(subreddit_name, has_images)
+        }
+        
+        # Create message array
+        messages = [
+            system_message,
+            {"role": "user", "content": content_array}
+        ]
+        
+        # Track the search attempt
+        web_search_manager.cost_tracker.record_search(post_data['title'], success=False)  # Will update on success
+        
+        # API call with web search tool using Responses API
+        response = openai_client.responses.create(
+            model="gpt-4o",
+            messages=messages,
+            tools=[{"type": "web_search"}],
+            max_tokens=250,
+            temperature=0.5
+        )
+        
+        # Record successful search
+        web_search_manager.circuit_breaker.record_success()
+        
+        # Extract summary and usage
+        summary = response.choices[0].message.content.strip()
+        
+        # Check if web search was actually used
+        web_search_used = any(
+            hasattr(choice.message, 'tool_calls') and choice.message.tool_calls 
+            for choice in response.choices
+        ) if hasattr(response, 'choices') else False
+        
+        usage = {
+            "prompt_tokens": response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+            "images_processed": len(valid_images[:max_images]) if has_images else 0,
+            "web_search_used": web_search_used,
+            "web_search_cost": WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0,
+            "estimated_cost": calculate_multimodal_cost(
+                response.usage.__dict__, 
+                len(valid_images[:max_images]) if has_images else 0
+            ) + (WEB_SEARCH_CONFIG['cost_per_search'] if web_search_used else 0)
+        }
+        
+        # Update cost tracking with actual usage
+        if web_search_used:
+            web_search_manager.cost_tracker.record_search(
+                post_data['title'], 
+                actual_cost=usage['web_search_cost'],
+                success=True
+            )
+        
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"Web search summary completed: web_search_used={web_search_used}, cost=${usage['estimated_cost']:.4f}")
+        
+        return {"summary": summary, "usage": usage}
+        
+    except Exception as e:
+        print(f"ERROR in web search summarization: {e}")
+        
+        # Record failure for circuit breaker
+        web_search_manager.circuit_breaker.record_failure()
+        
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"Web search failed: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
+        
+        return None
 
 def summarize_post_content_multimodal(post_data, subreddit_name):
     """Enhanced post summarization with optional image analysis"""
@@ -490,9 +992,45 @@ def summarize_post_content_text_only(post_data, subreddit_name):
         return None
 
 def summarize_post_content(post_data, subreddit_name):
-    """Main entry point for post summarization - chooses multimodal or text-only"""
-    # Use multimodal function which handles both cases
-    return summarize_post_content_multimodal(post_data, subreddit_name)
+    """Main entry point for post summarization with fallback chain"""
+    
+    # Try web search enhanced summarization first (if enabled and applicable)
+    if WEB_SEARCH_CONFIG['enabled']:
+        try:
+            result = summarize_post_content_with_web_search(post_data, subreddit_name)
+            if result is not None:
+                if WEB_SEARCH_CONFIG['test_mode']:
+                    print("✓ Used web search enhanced summarization")
+                return result
+        except Exception as e:
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print(f"✗ Web search summarization failed: {e}")
+    
+    # Fallback to multimodal summarization
+    try:
+        result = summarize_post_content_multimodal(post_data, subreddit_name)
+        if result is not None:
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print("✓ Used multimodal summarization (fallback)")
+            return result
+    except Exception as e:
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"✗ Multimodal summarization failed: {e}")
+    
+    # Final fallback to text-only summarization
+    try:
+        result = summarize_post_content_text_only(post_data, subreddit_name)
+        if result is not None:
+            if WEB_SEARCH_CONFIG['test_mode']:
+                print("✓ Used text-only summarization (final fallback)")
+            return result
+    except Exception as e:
+        if WEB_SEARCH_CONFIG['test_mode']:
+            print(f"✗ Text-only summarization failed: {e}")
+    
+    # All methods failed
+    print(f"ERROR: All summarization methods failed for post: {post_data['title'][:50]}...")
+    return None
 
 
 def summarize_comments(post_data, subreddit_name):
@@ -606,12 +1144,13 @@ def format_email_content(all_posts, all_subreddit_posts=None):
     # Get unique subreddits from the posts
     subreddits = sorted(list(set(post['subreddit'] for post in all_posts)))
     
-    # Calculate total token usage including images
+    # Calculate total token usage including images and web searches
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
     total_images_processed = 0
     total_estimated_cost = 0
+    total_web_searches = 0
     
     for post in all_posts:
             summaries = post.get('summaries', {})
@@ -624,6 +1163,8 @@ def format_email_content(all_posts, all_subreddit_posts=None):
                     total_tokens += post_usage.get('total_tokens', 0)
                     total_images_processed += post_usage.get('images_processed', 0)
                     total_estimated_cost += post_usage.get('estimated_cost', 0)
+                    if post_usage.get('web_search_used', False):
+                        total_web_searches += 1
                 
                 # Add comments summary tokens
                 comments_usage = summaries.get('comments_usage', {})
@@ -904,6 +1445,8 @@ def format_email_content(all_posts, all_subreddit_posts=None):
 
                 <div class="token-item">🖼️ Images: {total_images_processed}</div>
 
+                <div class="token-item">🌐 Web Searches: {total_web_searches}</div>
+
                 <div class="token-item">💰 Est. Cost: ${total_estimated_cost:.4f}</div>
 
             </div>
@@ -920,16 +1463,21 @@ def format_email_content(all_posts, all_subreddit_posts=None):
             summaries = post.get('summaries', {})
             post_summary = None
             comments_summary = None
+            web_search_used = False
             
             if summaries:
                 post_summary = summaries.get('post_summary')
                 comments_summary = summaries.get('comments_summary')
+                post_usage = summaries.get('post_usage', {})
+                web_search_used = post_usage.get('web_search_used', False)
+            
+            web_search_indicator = ' <span class="web-search-badge" title="Enhanced with web search">🌐</span>' if web_search_used else ''
             
             html_content += f"""
             <div class="post">
                 <div class="post-title">
                     <span class="upvotes">{post['score']}</span>
-                    <a href="{post['url']}" target="_blank">{post['title']}</a>
+                    <a href="{post['url']}" target="_blank">{post['title']}</a>{web_search_indicator}
                 </div>
                 <div class="post-meta">
                     <div class="meta-item">r/{post['subreddit']}</div>
@@ -996,12 +1544,13 @@ def create_plain_text_content(all_posts, all_subreddit_posts=None):
     # Get unique subreddits from all posts
     subreddits = sorted(list(set(post['subreddit'] for post in all_posts)))
     
-    # Calculate total token usage including images
+    # Calculate total token usage including images and web searches
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
     total_images_processed = 0
     total_estimated_cost = 0
+    total_web_searches = 0
     
     for post in all_posts:
             summaries = post.get('summaries', {})
@@ -1014,6 +1563,8 @@ def create_plain_text_content(all_posts, all_subreddit_posts=None):
                     total_tokens += post_usage.get('total_tokens', 0)
                     total_images_processed += post_usage.get('images_processed', 0)
                     total_estimated_cost += post_usage.get('estimated_cost', 0)
+                    if post_usage.get('web_search_used', False):
+                        total_web_searches += 1
                 
                 # Add comments summary tokens
                 comments_usage = summaries.get('comments_usage', {})
@@ -1032,6 +1583,7 @@ def create_plain_text_content(all_posts, all_subreddit_posts=None):
     text_content += f"Completion tokens: {total_completion_tokens}\n"
     text_content += f"Total tokens: {total_tokens}\n"
     text_content += f"Images processed: {total_images_processed}\n"
+    text_content += f"Web searches: {total_web_searches}\n"
     text_content += f"Estimated cost: ${total_estimated_cost:.4f}\n"
     text_content += "=" * 50 + "\n\n"
     
@@ -1228,6 +1780,45 @@ def main():
             print(f"- Posts with detected images: {len(posts_with_images)}")
             for post in posts_with_images:
                 print(f"  - '{post['title'][:40]}...' has {len(post['image_urls'])} images")
+        
+        # Log web search results
+        if WEB_SEARCH_CONFIG['enabled'] or WEB_SEARCH_CONFIG['test_mode']:
+            posts_with_web_search = []
+            web_search_candidates = []
+            
+            for post in all_posts:
+                summaries = post.get('summaries', {})
+                if summaries:
+                    post_usage = summaries.get('post_usage', {})
+                    if post_usage.get('web_search_used', False):
+                        posts_with_web_search.append(post)
+                
+                # Check which posts were candidates for web search
+                if should_use_web_search(post, post['subreddit']):
+                    web_search_candidates.append(post)
+            
+            print(f"\nWeb Search Summary:")
+            print(f"- Web search enabled: {WEB_SEARCH_CONFIG['enabled']}")
+            print(f"- Posts that used web search: {len(posts_with_web_search)}")
+            print(f"- Posts that were candidates: {len(web_search_candidates)}")
+            
+            # Show web search status
+            status = web_search_manager.get_status_summary()
+            print(f"- Daily usage: {status['daily_usage']['searches_count']}/{WEB_SEARCH_CONFIG['daily_limit']} searches")
+            print(f"- Daily cost: ${status['daily_usage']['total_cost']:.4f}/${WEB_SEARCH_CONFIG['cost_limit_per_day']:.2f}")
+            print(f"- Circuit breaker state: {status['circuit_breaker_state']}")
+            
+            if posts_with_web_search:
+                print("Web search enhanced posts:")
+                for post in posts_with_web_search:
+                    print(f"  - '{post['title'][:40]}...' (score: {post['score']})")
+            
+            if WEB_SEARCH_CONFIG['test_mode'] and web_search_candidates:
+                print("Web search candidates:")
+                for post in web_search_candidates:
+                    can_search, reason = web_search_manager.can_perform_search(post, post['subreddit'])
+                    status_icon = "✓" if can_search else "✗"
+                    print(f"  {status_icon} '{post['title'][:40]}...' - {reason}")
                 
         # Format email content
         print("\nGenerating email content...")

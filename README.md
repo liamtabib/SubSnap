@@ -72,3 +72,31 @@ In the `.env` file:
 - `RUN_ONCE`: If set to "true", runs once and exits without scheduling
 
 You can also configure which subreddits to monitor and how many posts to fetch by modifying the parameters in the `fetch_reddit_posts` function call in the script.
+
+## Advanced Features
+
+### Multimodal Image Analysis
+The application includes advanced AI-powered image analysis capabilities that can:
+- Analyze images from Reddit posts using multimodal AI
+- Extract meaningful insights and context from visual content
+- Provide detailed descriptions of images in the email digest
+
+### Web Search Integration
+Enhanced with web search capabilities for:
+- Real-time information gathering
+- Context enrichment for posts
+- Fact-checking and additional research
+
+### Customizable Subreddit Selection
+The application supports dynamic subreddit configuration with popular defaults including:
+- Technology discussions
+- Programming communities
+- Side projects showcase
+- General interest topics
+
+## Troubleshooting
+
+### Common Issues
+- **Authentication errors**: Double-check your Reddit API credentials and ensure they're correctly set in the `.env` file
+- **Email sending failures**: Verify your email credentials and app password (for Gmail)
+- **Rate limiting**: The application includes built-in rate limiting to respect Reddit's API guidelines

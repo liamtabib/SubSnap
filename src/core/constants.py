@@ -43,8 +43,11 @@ class Constants:
     IMAGE_VALIDATION_TIMEOUT = 5  # seconds
     SMTP_TIMEOUT = 10  # seconds
     
-    # File names
-    LAST_EMAIL_CONTENT_FILE = "last_email_content.html"
-    SUBREDDIT_DATA_FILE = "subreddit_data.txt"
-    WEB_SEARCH_USAGE_FILE = "web_search_usage.json"
-    WEB_SEARCH_CIRCUIT_STATE_FILE = "web_search_circuit_state.json"
+    # Output directory
+    OUTPUT_DIR = "output"
+    
+    # File names (will be placed in OUTPUT_DIR)
+    LAST_EMAIL_CONTENT_FILE = "output/last_email_content.html"
+    SUBREDDIT_DATA_FILE = "output/subreddit_data.txt"
+    WEB_SEARCH_USAGE_FILE = "output/web_search_usage.json"
+    WEB_SEARCH_CIRCUIT_STATE_FILE = "output/web_search_circuit_state.json"

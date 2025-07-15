@@ -35,12 +35,16 @@ debug/*.log
 debug/*.txt
 debug/*.temp
 
+# Output directory (generated files)
+output/
+!output/README.md
+
 # Test output files
 tests/test_email_output.html
 tests/test_email_output.txt
 tests/test_results.json
 
-# Email content samples (may contain sensitive data)
+# Email content samples (may contain sensitive data) - legacy paths
 last_email_content.html
 email_output.html
 email_output.txt

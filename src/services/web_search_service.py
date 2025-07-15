@@ -48,6 +48,8 @@ class WebSearchCircuitBreaker:
     def save_state(self) -> None:
         """Save circuit breaker state."""
         try:
+            # Ensure output directory exists
+            os.makedirs(Constants.OUTPUT_DIR, exist_ok=True)
             with open(self.state_file, 'w') as f:
                 json.dump(self.state, f, indent=2)
         except Exception as e:

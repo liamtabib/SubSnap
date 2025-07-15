@@ -63,7 +63,7 @@ python run_tests.py --format=quiet
 
 ## Test Output Files
 
-Generated test output files are stored in this directory:
+Generated test output files are stored in the `../output/` directory:
 - `test_email_output.html` - Sample HTML email output
 - `test_email_output.txt` - Sample plain text email output
 

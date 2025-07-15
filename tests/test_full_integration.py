@@ -177,13 +177,14 @@ def test_email_formatting():
             print("✓ Web search statistics included in plain text")
         
         # Save test output
-        with open('test_email_output.html', 'w') as f:
+        os.makedirs('../output', exist_ok=True)
+        with open('../output/test_email_output.html', 'w') as f:
             f.write(html_content)
-        print("✓ Test HTML saved to test_email_output.html")
+        print("✓ Test HTML saved to output/test_email_output.html")
         
-        with open('test_email_output.txt', 'w') as f:
+        with open('../output/test_email_output.txt', 'w') as f:
             f.write(text_content)
-        print("✓ Test plain text saved to test_email_output.txt")
+        print("✓ Test plain text saved to output/test_email_output.txt")
         
     except Exception as e:
         print(f"✗ Email formatting test failed: {e}")

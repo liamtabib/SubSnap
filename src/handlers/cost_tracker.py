@@ -46,6 +46,8 @@ class CostTracker:
     def save_usage_data(self) -> None:
         """Save usage data to file."""
         try:
+            # Ensure output directory exists
+            os.makedirs(Constants.OUTPUT_DIR, exist_ok=True)
             with open(self.usage_file, 'w') as f:
                 json.dump(self.usage_data, f, indent=2)
         except Exception as e:

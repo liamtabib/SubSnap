@@ -158,6 +158,9 @@ class DigestOrchestrator:
     
     def _save_debug_files(self, posts: List[Dict[str, Any]], subreddit_posts: Dict[str, List]) -> None:
         """Save debug files for inspection."""
+        # Ensure output directory exists
+        os.makedirs(Constants.OUTPUT_DIR, exist_ok=True)
+        
         # Save HTML content
         html_content = self.email_handler.formatter.format_html_email(posts)
         with open(Constants.LAST_EMAIL_CONTENT_FILE, "w") as f:

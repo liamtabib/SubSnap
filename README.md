@@ -1,105 +1,90 @@
 # SubSnap
 
-**Get the best Reddit content delivered to your inbox with AI-powered summaries.**
+SubSnap is a Reddit digest service that automatically curates top posts from specified subreddits and delivers them via email with AI-powered summaries and contextual information.
 
-SubSnap automatically curates top posts from your favorite subreddits and sends you a daily digest with intelligent summaries, context, and insights.
+## Features
 
-## ✨ What You Get
+SubSnap provides smart curation by filtering posts based on upvotes and relevance, generates concise AI summaries of posts and comments, integrates web search for real-time fact-checking and background information, and sends clean HTML-formatted emails. The service is designed to reduce time spent browsing Reddit by delivering only the most relevant content.
 
-- **Smart Curation** - Only the most engaging posts, filtered by upvotes and relevance
-- **AI Summaries** - Concise, intelligent summaries of posts and comments
-- **Rich Context** - Web search integration for real-time fact-checking and background info
-- **Beautiful Emails** - Clean, responsive HTML formatting that looks great on any device
-- **Time Saving** - Skip endless scrolling, get just the highlights that matter
+## Quick Start
 
-## 🚀 Quick Start
-
-1. **Install**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Configure**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
-
-3. **Run**
-   ```bash
-   python digest.py --run-once
-   ```
-
-That's it! Check your email for your first digest.
-
-## ⚙️ Setup
-
-### Reddit API
-1. Go to https://www.reddit.com/prefs/apps
-2. Create a new "script" app
-3. Add the Client ID and Secret to your `.env` file
-
-### Email (Gmail)
-1. Enable 2-factor authentication
-2. Generate app password at https://myaccount.google.com/apppasswords
-3. Add to your `.env` file
-
-### OpenAI (Optional)
-Add your OpenAI API key to `.env` for enhanced AI summaries
-
-## 📋 Usage
-
+Install the required dependencies:
 ```bash
-# Run once
+pip install -r requirements.txt
+```
+
+Create a `.env` file with your API credentials and configuration. You'll need Reddit API credentials, email settings, and optionally OpenAI API keys for enhanced features.
+
+Run the service once to test:
+```bash
 python digest.py --run-once
+```
 
-# Schedule daily emails (set SCHEDULE_TIME in .env)
+## Configuration
+
+Create a `.env` file in the root directory with the following variables:
+
+- `SUBREDDITS` - Comma-separated list of subreddits to monitor
+- `SCHEDULE_TIME` - Time for daily emails (format: "HH:MM")
+- `MIN_POST_SCORE` - Minimum upvotes required for posts
+- `WEB_SEARCH_ENABLED` - Enable AI web search functionality
+- `IMAGE_ANALYSIS_ENABLED` - Enable image analysis features
+
+### Reddit API Setup
+
+Navigate to https://www.reddit.com/prefs/apps and create a new "script" application. Copy the Client ID and Client Secret to your `.env` file as `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`.
+
+### Email Configuration
+
+For Gmail users, enable 2-factor authentication and generate an app password at https://myaccount.google.com/apppasswords. Add this to your `.env` file as `EMAIL_PASSWORD` along with your Gmail address as `EMAIL_SENDER` and `EMAIL_RECIPIENT`.
+
+### Optional: OpenAI Integration
+
+Add your OpenAI API key to `.env` as `OPENAI_API_KEY` to enable enhanced AI summaries, web search integration, and image analysis features.
+
+## Usage
+
+Run the service once:
+```bash
+python digest.py --run-once
+```
+
+Schedule daily emails by setting `SCHEDULE_TIME` in your `.env` file and running:
+```bash
 python digest.py
+```
 
-# Quiet mode
+Use quiet mode to suppress output:
+```bash
 python digest.py --run-once --quiet
 ```
 
-## 🔧 Configuration
-
-Edit `.env` to customize:
-- `SUBREDDITS` - Which subreddits to monitor
-- `SCHEDULE_TIME` - When to send daily emails (e.g., "09:00")
-- `MIN_POST_SCORE` - Minimum upvotes required
-- `WEB_SEARCH_ENABLED` - Enable AI web search (requires OpenAI)
-- `IMAGE_ANALYSIS_ENABLED` - Enable image analysis (requires OpenAI)
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 SubSnap/
-├── src/                  # Main application
-├── tests/                # Test suite
-├── debug/                # Debug tools & runtime data
-├── digest.py             # Entry point
-└── .env                  # Your configuration
+├── src/                  # Main application code
+├── tests/                # Test suite and test runner
+├── debug/                # Debug tools and utilities
+├── output/               # Generated files directory
+├── digest.py             # Main entry point
+└── .env                  # Configuration file
 ```
 
-## 🧪 Testing
+## Testing
 
+Run the complete test suite:
 ```bash
-# Run all tests
 cd tests && python run_tests.py
+```
 
-# Test specific feature
+Test specific functionality:
+```bash
 cd tests && python test_web_search.py
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-- **No posts found**: Check if subreddits have recent posts with enough upvotes
-- **Email not sending**: Verify Gmail app password and 2FA is enabled
-- **API errors**: Ensure Reddit/OpenAI API keys are valid and have sufficient quota
+If no posts are found, verify that the specified subreddits have recent posts meeting the minimum upvote threshold. Email sending issues are typically related to incorrect Gmail app passwords or missing 2FA setup. API errors usually indicate invalid or expired API keys or insufficient quota.
 
-## 📧 Support
-
-Run `python digest.py --help` for more options or check the `debug/` folder for runtime logs.
-
----
-
-**Made with ❤️ for Reddit enthusiasts who want to stay informed without the noise.**
+For additional debugging information, check the `output/` directory for runtime logs and generated files, or run with `--help` for available command-line options.

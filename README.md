@@ -1,102 +1,105 @@
-# Reddit Email Digest
+# SubSnap
 
-This application fetches the top 3 most upvoted posts from selected subreddits along with their top 3 comments and sends them to your email.
+**Get the best Reddit content delivered to your inbox with AI-powered summaries.**
 
-## Features
+SubSnap automatically curates top posts from your favorite subreddits and sends you a daily digest with intelligent summaries, context, and insights.
 
-- Fetches top posts from multiple subreddits (configurable)
-- Extracts the top 3 comments for each post
-- Formats the content into a readable email
-- Sends daily digests or can be run on demand
-- Configurable scheduling options
+## ✨ What You Get
 
-## Setup
+- **Smart Curation** - Only the most engaging posts, filtered by upvotes and relevance
+- **AI Summaries** - Concise, intelligent summaries of posts and comments
+- **Rich Context** - Web search integration for real-time fact-checking and background info
+- **Beautiful Emails** - Clean, responsive HTML formatting that looks great on any device
+- **Time Saving** - Skip endless scrolling, get just the highlights that matter
 
-1. Clone this repository
-2. Install the required dependencies:
-   ```
+## 🚀 Quick Start
+
+1. **Install**
+   ```bash
    pip install -r requirements.txt
    ```
-3. Create a `.env` file by copying the `.env.example` file:
-   ```
+
+2. **Configure**
+   ```bash
    cp .env.example .env
+   # Edit .env with your API keys
    ```
-4. Edit the `.env` file with your credentials
 
-### Reddit API Setup
+3. **Run**
+   ```bash
+   python digest.py --run-once
+   ```
 
+That's it! Check your email for your first digest.
+
+## ⚙️ Setup
+
+### Reddit API
 1. Go to https://www.reddit.com/prefs/apps
-2. Click "create app" at the bottom
-3. Fill in the details:
-   - Name: reddit_digest (or any name you prefer)
-   - Type: script
-   - Description: App to fetch top posts from selected subreddits
-   - About URL: (leave blank)
-   - Redirect URI: http://localhost (this is required but won't be used)
-4. Click "create app"
-5. Copy the Client ID (the string under the app name) and Client Secret to your `.env` file
+2. Create a new "script" app
+3. Add the Client ID and Secret to your `.env` file
 
-### Email Setup
+### Email (Gmail)
+1. Enable 2-factor authentication
+2. Generate app password at https://myaccount.google.com/apppasswords
+3. Add to your `.env` file
 
-If using Gmail:
-1. Create an app password: https://myaccount.google.com/apppasswords
-   (You'll need to have 2-factor authentication enabled)
-2. Use this app password in your `.env` file instead of your regular Gmail password
+### OpenAI (Optional)
+Add your OpenAI API key to `.env` for enhanced AI summaries
 
-## Usage
-
-### Run once
-
-To run the script once without scheduling:
+## 📋 Usage
 
 ```bash
-cd /path/to/reddit_workflow
-RUN_ONCE=true python src/reddit_email.py
+# Run once
+python digest.py --run-once
+
+# Schedule daily emails (set SCHEDULE_TIME in .env)
+python digest.py
+
+# Quiet mode
+python digest.py --run-once --quiet
 ```
 
-### Run as a scheduled job
+## 🔧 Configuration
 
-To run as a scheduled job (default is daily at 9:00 AM):
+Edit `.env` to customize:
+- `SUBREDDITS` - Which subreddits to monitor
+- `SCHEDULE_TIME` - When to send daily emails (e.g., "09:00")
+- `MIN_POST_SCORE` - Minimum upvotes required
+- `WEB_SEARCH_ENABLED` - Enable AI web search (requires OpenAI)
+- `IMAGE_ANALYSIS_ENABLED` - Enable image analysis (requires OpenAI)
+
+## 📁 Project Structure
+
+```
+SubSnap/
+├── src/                  # Main application
+├── tests/                # Test suite
+├── debug/                # Debug tools & runtime data
+├── digest.py             # Entry point
+└── .env                  # Your configuration
+```
+
+## 🧪 Testing
 
 ```bash
-cd /path/to/reddit_workflow
-python src/reddit_email.py
+# Run all tests
+cd tests && python run_tests.py
+
+# Test specific feature
+cd tests && python test_web_search.py
 ```
 
-## Configuration Options
+## 🐛 Troubleshooting
 
-In the `.env` file:
+- **No posts found**: Check if subreddits have recent posts with enough upvotes
+- **Email not sending**: Verify Gmail app password and 2FA is enabled
+- **API errors**: Ensure Reddit/OpenAI API keys are valid and have sufficient quota
 
-- `SCHEDULE_TIME`: Time to run the daily digest (format: HH:MM)
-- `INITIAL_RUN`: If set to "true", runs immediately on startup in addition to scheduled times
-- `RUN_ONCE`: If set to "true", runs once and exits without scheduling
+## 📧 Support
 
-You can also configure which subreddits to monitor and how many posts to fetch by modifying the parameters in the `fetch_reddit_posts` function call in the script.
+Run `python digest.py --help` for more options or check the `debug/` folder for runtime logs.
 
-## Advanced Features
+---
 
-### Multimodal Image Analysis
-The application includes advanced AI-powered image analysis capabilities that can:
-- Analyze images from Reddit posts using multimodal AI
-- Extract meaningful insights and context from visual content
-- Provide detailed descriptions of images in the email digest
-
-### Web Search Integration
-Enhanced with web search capabilities for:
-- Real-time information gathering
-- Context enrichment for posts
-- Fact-checking and additional research
-
-### Customizable Subreddit Selection
-The application supports dynamic subreddit configuration with popular defaults including:
-- Technology discussions
-- Programming communities
-- Side projects showcase
-- General interest topics
-
-## Troubleshooting
-
-### Common Issues
-- **Authentication errors**: Double-check your Reddit API credentials and ensure they're correctly set in the `.env` file
-- **Email sending failures**: Verify your email credentials and app password (for Gmail)
-- **Rate limiting**: The application includes built-in rate limiting to respect Reddit's API guidelines
+**Made with ❤️ for Reddit enthusiasts who want to stay informed without the noise.**

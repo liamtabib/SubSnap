@@ -4,7 +4,7 @@ Test multimodal summarization with mock data
 """
 import os
 import sys
-sys.path.append('src')
+sys.path.append('../src')
 
 # Set test environment variables
 os.environ['ENABLE_IMAGE_ANALYSIS'] = 'true'

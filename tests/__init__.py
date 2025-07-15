@@ -1,0 +1,1 @@
+"""Test suite for SubSnap Reddit Email Digest."""

@@ -4,7 +4,7 @@ Validate the scoring system with realistic Reddit post examples
 """
 import os
 import sys
-sys.path.append('src')
+sys.path.append('../src')
 
 # Enable test mode for detailed scoring
 os.environ['WEB_SEARCH_ENABLED'] = 'true'

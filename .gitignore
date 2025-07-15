@@ -27,3 +27,24 @@ var/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Runtime data files (debug directory)
+debug/*.json
+debug/*.html
+debug/*.log
+debug/*.txt
+debug/*.temp
+
+# Test output files
+tests/test_email_output.html
+tests/test_email_output.txt
+tests/test_results.json
+
+# Email content samples (may contain sensitive data)
+last_email_content.html
+email_output.html
+email_output.txt
+
+# Logs
+*.log
+logs/

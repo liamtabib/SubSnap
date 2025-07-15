@@ -5,15 +5,18 @@ Full integration test for web search functionality
 import os
 import sys
 import json
-sys.path.append('src')
+import argparse
+sys.path.append('../src')
 
 from reddit_email import (
     WEB_SEARCH_CONFIG,
     web_search_manager,
     summarize_post_content,
     format_email_content,
-    create_plain_text_content
+    create_plain_text_content,
+    can_perform_search
 )
+from core.reporter import SubSnapReporter, add_reporter_args, get_reporter_from_args
 
 def create_mock_posts():
     """Create mock posts for testing"""
@@ -92,7 +95,7 @@ def test_summarization_with_web_search_enabled():
             print(f"\n--- Post {i}: {post['title'][:50]}... ---")
             
             # Test scoring and decision making
-            can_search, reason = web_search_manager.can_perform_search(post, post['subreddit'])
+            can_search, reason = can_perform_search(post, post['subreddit'])
             print(f"Can perform web search: {can_search}")
             print(f"Reason: {reason}")
             
@@ -244,28 +247,35 @@ def test_circuit_breaker():
 
 def main():
     """Run full integration test suite"""
-    print("Web Search Integration - Full Test Suite")
-    print("=" * 50)
+    parser = argparse.ArgumentParser(description='SubSnap Full Integration Test Suite')
+    add_reporter_args(parser)
+    args = parser.parse_args()
     
-    # Test 1: Summarization logic
-    mock_posts = test_summarization_with_web_search_enabled()
+    reporter = get_reporter_from_args(args)
+    reporter.start_suite("Full Integration Tests")
     
-    # Test 2: Email formatting
-    test_email_formatting()
+    try:
+        # Test 1: Summarization logic
+        mock_posts = test_summarization_with_web_search_enabled()
+        reporter.add_result("Summarization with Web Search", "pass", f"Tested {len(mock_posts)} mock posts")
+        
+        # Test 2: Email formatting
+        test_email_formatting()
+        reporter.add_result("Email Formatting", "pass", "HTML and plain text generation")
+        
+        # Test 3: Cost tracking
+        test_cost_tracking()
+        reporter.add_result("Cost Tracking", "pass", "Daily usage and limits")
+        
+        # Test 4: Circuit breaker
+        test_circuit_breaker()
+        reporter.add_result("Circuit Breaker", "pass", "Failure handling and recovery")
+        
+    except Exception as e:
+        reporter.add_result("Integration Test Suite", "fail", str(e))
     
-    # Test 3: Cost tracking
-    test_cost_tracking()
-    
-    # Test 4: Circuit breaker
-    test_circuit_breaker()
-    
-    print("\n" + "=" * 50)
-    print("✓ All integration tests completed!")
-    print("\nTo enable web search in production:")
-    print("1. Set WEB_SEARCH_ENABLED=true")
-    print("2. Monitor costs and usage closely")
-    print("3. Start with conservative limits")
-    print("4. Use WEB_SEARCH_TEST_MODE=true for detailed logging")
+    reporter.end_suite()
+    reporter.output(args.output if hasattr(args, 'output') else None)
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ Test edge cases and potential issues
 """
 import os
 import sys
-sys.path.append('src')
+sys.path.append('../src')
 
 def test_empty_web_search_results():
     """Test handling when no posts qualify for web search"""

@@ -95,10 +95,9 @@ jobs:
       run: |
         echo "Running from directory: $(pwd)"
         echo "Current git commit: $(git rev-parse HEAD)"
-        echo "Latest code for format_email_content:"
-        grep -A 20 "def format_email_content" src/reddit_email.py
-        echo "\nChecking for username/emoji handling in comment summarization:"
-        grep -A 5 "DO NOT include usernames" src/reddit_email.py
+        echo "Code structure after refactoring:"
+        echo "- reddit_email.py is now a compatibility wrapper"
+        echo "- Main functionality moved to modular architecture"
         
         # Run the email script
         python src/reddit_email.py --run-once
